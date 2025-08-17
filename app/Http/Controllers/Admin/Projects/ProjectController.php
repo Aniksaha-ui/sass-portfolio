@@ -1,29 +1,29 @@
 <?php
 
-namespace App\Http\Controllers\Admin\Blog;
+namespace App\Http\Controllers\Admin\Projects;
 
 use App\Http\Controllers\Controller;
-use App\Repository\Services\Admin\Blog\BlogService;
+use App\Repository\Services\Admin\Projects\ProjectService;
 use Illuminate\Http\Request;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
-class BlogController extends Controller
+class ProjectController extends Controller
 {
 
-    private $blogService;
-    public function __construct(BlogService $usersService)
+    private $projectService;
+    public function __construct(ProjectService $projectService)
     {
-        $this->blogService = $usersService;
+        $this->projectService = $projectService;
     }
 
-    public function getAllBlogs(Request $request)
+    public function getAllProjects(Request $request)
     {
         try {
             $page = $request->query('page') ?? 1;
             $search = $request->query('search') ?? '';
             $perPage = $request->query('perPage') ?? 10;
-            $response = $this->blogService->getBlogs($perPage, $page, $search);
+            $response = $this->projectService->getProjects($perPage, $page, $search);
 
             return response()->json([
                 "isExecuted" => $response['status'],
@@ -31,43 +31,43 @@ class BlogController extends Controller
                 "data" => $response['data']
             ], 200);
         } catch (Exception $ex) {
-            Log::info("getAllBlogs function error: " . $ex->getMessage());
+            Log::info("getAllProjects function error: " . $ex->getMessage());
         }
     }
 
-    public function addNewBlog(Request $request)
+    public function addNewProject(Request $request)
     {
         try {
 
-            $insertedBlogInformation = $this->blogService->store($request->all());
+            $insertedProjectInformation = $this->projectService->store($request->all());
             return response()->json([
-                "isExecuted" => $insertedBlogInformation['status'],
-                "message" => $insertedBlogInformation['message'],
-                "data" => $insertedBlogInformation['data']
+                "isExecuted" => $insertedProjectInformation['status'],
+                "message" => $insertedProjectInformation['message'],
+                "data" => $insertedProjectInformation['data']
             ], 200);
         } catch (Exception $ex) {
-            Log::info("addNewBlog function error: " . $ex->getMessage());
+            Log::info("addNewProject function error: " . $ex->getMessage());
         }
     }
 
-    public function getBlogById($id)
+    public function getProjectById($id)
     {
         try {
-            $response = $this->blogService->getBlogById($id);
+            $response = $this->projectService->getProjectById($id);
             return response()->json([
                 "isExecuted" => $response['status'],
                 "message" => $response['message'],
                 "data" => $response['data']
             ], 200);
         } catch (Exception $ex) {
-            Log::info("getBlogById function error: " . $ex->getMessage());
+            Log::info("getProjectById function error: " . $ex->getMessage());
         }
     }
 
-    public function updateBlog($id, Request $request)
+    public function updateProject($id, Request $request)
     {
         try {
-            $response = $this->blogService->updateBlog($id, $request->all());
+            $response = $this->projectService->updateProject($id, $request->all());
             return response()->json([
                 "isExecuted" => $response['status'],
                 "message" => $response['message'],

@@ -36,7 +36,7 @@ class BlogService
                 ];
             }
         } catch (Exception $e) {
-            Log::error("store function error: " . $e->getMessage());
+            Log::error("blogservice - store function error: " . $e->getMessage());
             return $this->commonService->internalServerErrorResponse(false, "Internal server error", []);
         }
     }
@@ -66,7 +66,7 @@ class BlogService
                 ];
             }
         } catch (Exception $ex) {
-            Log::error("getBlogs function error: " . $ex->getMessage());
+            Log::error("blogservice  - getBlogs function error: " . $ex->getMessage());
             return $this->commonService->internalServerErrorResponse(false, "Internal Server Error. Please Contact Admin", []);
         }
     }
