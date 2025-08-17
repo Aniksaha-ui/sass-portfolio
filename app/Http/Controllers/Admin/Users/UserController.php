@@ -3,35 +3,81 @@
 namespace App\Http\Controllers\Admin\Users;
 
 use App\Http\Controllers\Controller;
-use App\Repository\Services\Admin\Blog\UsersService;
+use App\Repository\Services\Admin\Users\UsersService;
 use Exception;
 use Illuminate\Http\Request;
-use Log;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
-  
+
     private $usersService;
-    public function __construct(UsersService $usersService){
+    public function __construct(UsersService $usersService)
+    {
         $this->usersService = $usersService;
     }
 
-    public function getAllUsers(){}
+    public function getAllUsers(Request $request)
+    {
+        try {
+            $page = $request->query('page');
+            $search = $request->query('search');
+            $perPage = $request->query('perPage');
+            $response = $this->usersService->getUsers($perPage, $page, $search);
 
-    public function addNewUser(Request $request){
-        try{
-        
-            $insertedUserInformation = $this->usersService->store($request->all());
             return response()->json([
-                "isExecuted" => $insertedUserInformation['isExecute'],
+                "isExecuted" => $response['status'],
+                "message" => $response['message'],
+                "data" => $response['data']
+            ], 200);
+        } catch (Exception $ex) {
+            Log::info("getAllUsers function error: " . $ex->getMessage());
+        }
+    }
+
+    public function addNewUser(Request $request)
+    {
+        try {
+
+            $insertedUserInformation = $this->usersService->store($request->all());
+            Log::info(json_encode($insertedUserInformation));
+            return response()->json([
+                "isExecuted" => $insertedUserInformation['status'],
                 "message" => $insertedUserInformation['message'],
                 "data" => $insertedUserInformation['data']
-            ]);
-
-        }catch(Exception $ex){
+            ], 200);
+        } catch (Exception $ex) {
             Log::info("addNewUser function error: " . $ex->getMessage());
         }
     }
 
+    public function getUserById($id)
+    {
+        try {
+            $response = $this->usersService->getUserById($id);
+            return response()->json([
+                "isExecuted" => $response['status'],
+                "message" => $response['message'],
+                "data" => $response['data']
+            ], 200);
+        } catch (Exception $ex) {
+            Log::info("getUserById function error: " . $ex->getMessage());
+        }
+    }
 
+    public function updateUser($id, Request $request)
+    {
+        try {
+
+
+            $response = $this->usersService->updateUser($id, $request->all());
+            return response()->json([
+                "isExecuted" => $response['status'],
+                "message" => $response['message'],
+                "data" => $response['data']
+            ], 200);
+        } catch (Exception $ex) {
+            Log::info("getUserById function error: " . $ex->getMessage());
+        }
+    }
 }
