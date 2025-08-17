@@ -2,6 +2,7 @@
 
 namespace App\Repository\Services\Admin\Users;
 
+use App\Helpers\admin\FileManageHelper;
 use App\Repository\Services\Common\CommonService;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +21,13 @@ class UsersService
     public function store($data)
     {
         try {
+
+            if (request()->hasFile('image')) {
+                $documentLink = FileManageHelper::uploadFile('users', $data['image']);
+            } else {
+                $request['image'] = 'images/trips/default.png';
+            }
+
             $data['password'] = bcrypt($data['password']);
             $userId = DB::table('users')->insertGetId($data);
             if ($userId) {
