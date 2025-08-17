@@ -24,6 +24,7 @@ class UsersService
 
             if (request()->hasFile('image')) {
                 $documentLink = FileManageHelper::uploadFile('users', $data['image']);
+                $data['image'] = $documentLink;
             } else {
                 $request['image'] = 'images/trips/default.png';
             }
@@ -113,6 +114,13 @@ class UsersService
                     "message" => "User not found",
                     "data" => []
                 ];
+            }
+
+            if (request()->hasFile('image')) {
+                $documentLink = FileManageHelper::uploadFile('users', $data['image']);
+                $data['image'] = $documentLink;
+            } else {
+                $request['image'] = 'images/trips/default.png';
             }
             $user = DB::table('users')->where('id', $id)->update($data);
             if ($user) {
