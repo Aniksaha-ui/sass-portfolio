@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
+
+use App\Http\Controllers\User\Blog\UserBlogController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -39,3 +41,5 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {});
 
 
 /** route for everyone **/
+Route::get('users/blogs', [UserBlogController::class, 'getAllBlogs']);
+Route::get('users/blogs/{id}', [UserBlogController::class, 'getBlogById']);

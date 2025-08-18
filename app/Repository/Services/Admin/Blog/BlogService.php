@@ -50,6 +50,7 @@ class BlogService
                         ->orWhere('category', 'like', '%' . $search . '%')
                         ->orWhere('author_name', 'like', '%' . $search . '%');
                 })
+                ->orderBy('id', 'desc')
                 ->paginate($perPage, ['*'], 'page', $page);
 
             if ($user->count() > 0) {
