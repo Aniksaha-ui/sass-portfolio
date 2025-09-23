@@ -50,6 +50,7 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {});
 Route::get('users/products',[ProductController::class, 'homePageProducts']);
 Route::get('users/products/{id}',[ProductController::class, 'productDetails']);
 Route::get('users/category/products/{id}',[ProductController::class, 'categoryWiseProducts']);
+Route::get('users/category/products/{id}',[ProductController::class, 'categoryWiseProducts']);
 
 Route::get('users/blogs', [UserBlogController::class, 'getAllBlogs']);
 Route::get('users/blogs/{id}', [UserBlogController::class, 'getBlogById']);

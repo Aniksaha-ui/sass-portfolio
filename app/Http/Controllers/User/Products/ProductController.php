@@ -17,10 +17,11 @@ class ProductController extends Controller
         $this->productService = $productService;
     }
 
-    public function homePageProducts()
+    public function homePageProducts(Request $request)
     {
         try {
-            $sectionWiseProduct = $this->productService->getSectionWiseProducts();
+            $search = $request->query('search') ?? '';
+            $sectionWiseProduct = $this->productService->getSectionWiseProducts($search);
 
             return response()->json([
                 "isExecuted" => $sectionWiseProduct['status'],

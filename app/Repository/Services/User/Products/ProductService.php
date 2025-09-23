@@ -20,12 +20,14 @@ class ProductService
 
 
 
-    public function getSectionWiseProducts()
+    public function getSectionWiseProducts($search)
     {
         try {
             $products = DB::table('sections as s')
                 ->join('section_products as sp', 'sp.section_id', '=', 's.id')
                 ->join('products as p', 'sp.product_id', '=', 'p.id')
+                ->join('subcategories', 'p.subcategory_id', '=', 'subcategories.id')
+                ->join('categories', 'subcategories.category_id', '=', 'categories.id')
                 ->leftJoin('product_discounts as pd', 'pd.product_id', '=', 'p.id')
                 ->leftJoin('product_images as pi', function ($join) {
                     $join->on('pi.product_id', '=', 'p.id')
@@ -36,16 +38,23 @@ class ProductService
                     's.name as section_name',
                     'p.id as product_id',
                     'p.name as product_name',
+                    'categories.name as category_name',
+                    'subcategories.name as subcategory_name',
                     'p.description',
                     'p.price',
                     'pd.discount_type',
                     'pd.discount_value',
                     'pi.image_url as primary_image',
-                    'i.stock_quantity'
+                    'i.stock_quantity',
                 )
                 ->where('s.is_active', 1)
                 ->where('p.is_active', 1)
                 ->where('i.stock_quantity', '>', 0)
+                 ->where(function ($query) use ($search) {
+                    $query->where('p.name', 'like', '%' . $search . '%')
+                           ->orWhere('subcategories.name', 'like', '%' . $search . '%')
+                           ->orWhere('categories.name', 'like', '%' . $search . '%');
+                })
                 ->orderBy('s.display_order', 'asc')
                 ->orderBy('sp.display_order', 'asc')
                 ->take(100)
