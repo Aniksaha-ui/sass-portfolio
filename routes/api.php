@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
 
 use App\Http\Controllers\User\Blog\UserBlogController;
+use App\Http\Controllers\User\Products\ProductController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -32,6 +33,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/projects', [ProjectController::class, 'getAllProjects']);
     Route::get('admin/projects/{id}', [ProjectController::class, 'getProjectById']);
     Route::post('admin/projects/{id}', [ProjectController::class, 'updateProject']);
+
+    Route::post('admin/experience', [ProjectController::class, 'addNewExperience']);
+    Route::get('admin/experience', [ProjectController::class, 'getAllExperience']);
+    Route::get('admin/experience/{id}', [ProjectController::class, 'getExperienceById']);
+    Route::post('admin/experience/{id}', [ProjectController::class, 'updateExperience']);
 });
 
 
@@ -41,5 +47,9 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {});
 
 
 /** route for everyone **/
+Route::get('users/products',[ProductController::class, 'homePageProducts']);
+Route::get('users/products/{id}',[ProductController::class, 'productDetails']);
+Route::get('users/category/products/{id}',[ProductController::class, 'categoryWiseProducts']);
+
 Route::get('users/blogs', [UserBlogController::class, 'getAllBlogs']);
 Route::get('users/blogs/{id}', [UserBlogController::class, 'getBlogById']);
