@@ -34,8 +34,9 @@ class ProductController extends Controller
     }
 
 
-    public function productDetails($id){
-        try{
+    public function productDetails($id)
+    {
+        try {
 
             $validator = Validator::make(['id' => $id], [
                 'id' => 'required|gt:0',
@@ -55,15 +56,15 @@ class ProductController extends Controller
                 "message" => $sectionWiseProduct['message'],
                 "data" => $sectionWiseProduct['data']
             ], 200);
-        }catch(Exception $ex){
+        } catch (Exception $ex) {
             Log::info("ProductController : productDetails function error: " . $ex->getMessage());
-
         }
     }
 
 
-    public function categoryWiseProducts($id){
-        try{
+    public function categoryWiseProducts($id)
+    {
+        try {
 
             $validator = Validator::make(['id' => $id], [
                 'id' => 'required|gt:0',
@@ -83,11 +84,8 @@ class ProductController extends Controller
                 "message" => $sectionWiseProduct['message'],
                 "data" => $sectionWiseProduct['data']
             ], 200);
-        }catch(Exception $ex){
+        } catch (Exception $ex) {
             Log::info("ProductController : categoryWiseProducts function error: " . $ex->getMessage());
-
         }
     }
-
-
 }

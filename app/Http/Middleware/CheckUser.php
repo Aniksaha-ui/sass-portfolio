@@ -24,6 +24,6 @@ class CheckUser
 
     public function isAdmin($user)
     {
-        return $user->role == 'users' ? true : false;
+        return $user->role == 'customer' ? true : false;
     }
 }

@@ -50,10 +50,10 @@ class ProductService
                 ->where('s.is_active', 1)
                 ->where('p.is_active', 1)
                 ->where('i.stock_quantity', '>', 0)
-                 ->where(function ($query) use ($search) {
+                ->where(function ($query) use ($search) {
                     $query->where('p.name', 'like', '%' . $search . '%')
-                           ->orWhere('subcategories.name', 'like', '%' . $search . '%')
-                           ->orWhere('categories.name', 'like', '%' . $search . '%');
+                        ->orWhere('subcategories.name', 'like', '%' . $search . '%')
+                        ->orWhere('categories.name', 'like', '%' . $search . '%');
                 })
                 ->orderBy('s.display_order', 'asc')
                 ->orderBy('sp.display_order', 'asc')
@@ -84,15 +84,16 @@ class ProductService
     {
         try {
             $productDetails = DB::table('products')
-                    ->join('subcategories', 'products.subcategory_id', '=', 'subcategories.id')
-                    ->join('categories', 'subcategories.category_id', '=', 'categories.id')
-                    ->leftJoin('product_discounts as pd', 'pd.product_id', '=', 'products.id')
-                    ->leftJoin('product_images as pi', function ($join) {
-                        $join->on('pi.product_id', '=', 'products.id')
+                ->join('subcategories', 'products.subcategory_id', '=', 'subcategories.id')
+                ->join('categories', 'subcategories.category_id', '=', 'categories.id')
+                ->leftJoin('product_discounts as pd', 'pd.product_id', '=', 'products.id')
+                ->leftJoin('product_images as pi', function ($join) {
+                    $join->on('pi.product_id', '=', 'products.id')
                         ->where('pi.is_primary', '=', 1);
-                    })
-                    ->join('inventory as i', 'i.product_id', '=', 'products.id')
-                    ->select('products.id as product_id',
+                })
+                ->join('inventory as i', 'i.product_id', '=', 'products.id')
+                ->select(
+                    'products.id as product_id',
                     'products.name as productsroduct_name',
                     'categories.name as category_name',
                     'subcategories.name as subcategory_name',
@@ -101,8 +102,9 @@ class ProductService
                     'pd.discount_type',
                     'pd.discount_value',
                     'pi.image_url as primary_image',
-                    'i.stock_quantity')
-                    ->where('products.id', $id)->first();
+                    'i.stock_quantity'
+                )
+                ->where('products.id', $id)->first();
             if ($productDetails) {
                 return [
                     "status" => true,
@@ -126,16 +128,17 @@ class ProductService
     public function getCategoryWiseProducts($id)
     {
         try {
-              $categoryWiseProducts = DB::table('products')
-                    ->join('subcategories', 'products.subcategory_id', '=', 'subcategories.id')
-                    ->join('categories', 'subcategories.category_id', '=', 'categories.id')
-                    ->leftJoin('product_discounts as pd', 'pd.product_id', '=', 'products.id')
-                    ->leftJoin('product_images as pi', function ($join) {
-                        $join->on('pi.product_id', '=', 'products.id')
+            $categoryWiseProducts = DB::table('products')
+                ->join('subcategories', 'products.subcategory_id', '=', 'subcategories.id')
+                ->join('categories', 'subcategories.category_id', '=', 'categories.id')
+                ->leftJoin('product_discounts as pd', 'pd.product_id', '=', 'products.id')
+                ->leftJoin('product_images as pi', function ($join) {
+                    $join->on('pi.product_id', '=', 'products.id')
                         ->where('pi.is_primary', '=', 1);
-                    })
-                    ->join('inventory as i', 'i.product_id', '=', 'products.id')
-                    ->select('products.id as product_id',
+                })
+                ->join('inventory as i', 'i.product_id', '=', 'products.id')
+                ->select(
+                    'products.id as product_id',
                     'products.name as productsroduct_name',
                     'categories.name as category_name',
                     'subcategories.name as subcategory_name',
@@ -144,10 +147,11 @@ class ProductService
                     'pd.discount_type',
                     'pd.discount_value',
                     'pi.image_url as primary_image',
-                    'i.stock_quantity')
-                    ->where('categories.id', $id)
-                    ->get();
-        
+                    'i.stock_quantity'
+                )
+                ->where('categories.id', $id)
+                ->get();
+
 
             if ($categoryWiseProducts->count() > 0) {
 

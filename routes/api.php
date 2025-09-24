@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
 
 use App\Http\Controllers\User\Blog\UserBlogController;
+use App\Http\Controllers\User\Cart\CartController;
 use App\Http\Controllers\User\Products\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,15 +43,20 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
 
 /** protected route for users **/
-Route::middleware(['auth:sanctum', 'users'])->group(function () {});
+Route::middleware(['auth:sanctum', 'users'])->group(function () {
+    Route::post('users/add/cart', [CartController::class, 'addToCart']);
+    Route::get('users/mycart', [CartController::class, 'getMyCart']);
+    Route::get('users/applycoupon/{id}', [CartController::class, 'applyCoupon']);
+});
 
 
 
 /** route for everyone **/
-Route::get('users/products',[ProductController::class, 'homePageProducts']);
-Route::get('users/products/{id}',[ProductController::class, 'productDetails']);
-Route::get('users/category/products/{id}',[ProductController::class, 'categoryWiseProducts']);
-Route::get('users/category/products/{id}',[ProductController::class, 'categoryWiseProducts']);
+Route::get('users/products', [ProductController::class, 'homePageProducts']);
+Route::get('users/products/{id}', [ProductController::class, 'productDetails']);
+Route::get('users/category/products/{id}', [ProductController::class, 'categoryWiseProducts']);
+
+
 
 Route::get('users/blogs', [UserBlogController::class, 'getAllBlogs']);
 Route::get('users/blogs/{id}', [UserBlogController::class, 'getBlogById']);
