@@ -65,14 +65,14 @@ class CartService
                 if ($cartProducts && $cartProducts) {
                     DB::commit();
                     return [
-                        "status" => true,
+                        "status" => ResponseConstants::SUCCESS,
                         "message" => "Product added to cart successfully",
                         "data" => []
                     ];
                 } else {
                     DB::rollBack();
                     return [
-                        "status" => false,
+                        "status" => ResponseConstants::FAILED,
                         "message" => "Product not added to cart",
                         "data" => []
                     ];
@@ -113,21 +113,21 @@ class CartService
             if ($cartProducts && $cartProducts) {
                 DB::commit();
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "Product added to cart successfully",
                     "data" => []
                 ];
             } else {
                 DB::rollBack();
                 return [
-                    "status" => false,
+                    "status" => ResponseConstants::FAILED,
                     "message" => "Product not added to cart",
                     "data" => []
                 ];
             }
         } catch (Exception $ex) {
             Log::error("CartService : addToCart function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(false, "Internal Server Error. Please Contact Admin", []);
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
         }
     }
 
@@ -141,20 +141,20 @@ class CartService
                 ->get();
             if ($cartProducts->count() > 0) {
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "Cart Product fetched successfully",
                     "data" => $cartProducts
                 ];
             } else {
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "No product in cart found",
                     "data" => []
                 ];
             }
         } catch (Exception $ex) {
             Log::error("ProductService :myCart function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(false, "Internal Server Error. Please Contact Admin", []);
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
         }
     }
 
@@ -168,8 +168,7 @@ class CartService
                     $totalAmount += $item->price * $item->quantity;
                 }
 
-
-                $coupon = DB::table('coupons')->where('id', $couponId)->first();
+                $coupon = DB::table('coupons')->where('code', $couponId)->first();
 
                 if (!$coupon) {
                     return [

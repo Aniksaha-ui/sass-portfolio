@@ -2,6 +2,7 @@
 
 namespace App\Repository\Services\User\Products;
 
+use App\Constants\ResponseConstants;
 use App\Helpers\admin\FileManageHelper;
 use App\Repository\Services\Common\CommonService;
 use Exception;
@@ -63,20 +64,20 @@ class ProductService
             if ($products->count() > 0) {
 
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "Product fetched successfully",
                     "data" => $products
                 ];
             } else {
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "No product found",
                     "data" => []
                 ];
             }
         } catch (Exception $ex) {
             Log::error("ProductService : getSectionWiseProducts function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(false, "Internal Server Error. Please Contact Admin", []);
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
         }
     }
 
@@ -107,20 +108,20 @@ class ProductService
                 ->where('products.id', $id)->first();
             if ($productDetails) {
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "Product details fetched successfully",
                     "data" => $productDetails
                 ];
             } else {
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "No Product found",
                     "data" => []
                 ];
             }
         } catch (Exception $ex) {
             Log::error("ProductService :getProductDetailsById function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(false, "Internal Server Error. Please Contact Admin", []);
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
         }
     }
 
@@ -156,20 +157,20 @@ class ProductService
             if ($categoryWiseProducts->count() > 0) {
 
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "Product fetched successfully",
                     "data" => $categoryWiseProducts
                 ];
             } else {
                 return [
-                    "status" => true,
+                    "status" => ResponseConstants::SUCCESS,
                     "message" => "No product found",
                     "data" => []
                 ];
             }
         } catch (Exception $ex) {
             Log::error("ProductService :getCategoryWiseProducts function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(false, $ex->getMessage(), []);
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, $ex->getMessage(), []);
         }
     }
 }

@@ -6,9 +6,8 @@ use ReflectionClass;
 
 class ResponseConstants
 {
-    const SUCCESS = 'success';
-    const FAILED = 'failed';
-    const PENDING = 'pending';
+    const SUCCESS = true;
+    const FAILED = false;
 
 
     public static function success(): array
@@ -23,10 +22,5 @@ class ResponseConstants
             self::FAILED,
         ];
     }
-    public static function pending(): array
-    {
-        return [
-            self::PENDING,
-        ];
-    }
+  
 }
