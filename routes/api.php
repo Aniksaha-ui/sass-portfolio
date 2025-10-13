@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 
 use App\Http\Controllers\User\Blog\UserBlogController;
 use App\Http\Controllers\User\Cart\CartController;
+use App\Http\Controllers\User\Order\OrderController;
 use App\Http\Controllers\User\Products\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -47,6 +48,14 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {
     Route::post('users/add/cart', [CartController::class, 'addToCart']);
     Route::get('users/mycart', [CartController::class, 'getMyCart']);
     Route::get('users/applycoupon/{id}', [CartController::class, 'applyCoupon']);
+    Route::post('users/order', [OrderController::class, 'order']);
+
+
+
+
+    Route::post('/users/order/success', [OrderController::class, 'success'])->name('payment.success');
+Route::post('/users/order/fail', [OrderController::class, 'fail'])->name('payment.fail');
+Route::post('/users/order/cancel', [OrderController::class, 'cancel'])->name('payment.cancel');
 });
 
 
