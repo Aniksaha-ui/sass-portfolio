@@ -11,22 +11,23 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
 
-     private $orderService;
+    private $orderService;
     public function __construct(OrderService $orderService)
     {
         $this->orderService = $orderService;
-        
     }
-    public function order(Request $request){
- try {
+    public function order(Request $request)
+    {
+        try {
             $response = $this->orderService->order($request->all());
-            return response()->json([
-                "isExecuted" => $response['status'],
-                "message" => $response['message'],
-                "data" => $response['data']
-            ], 200);
+            return response()->json($response);
         } catch (Exception $ex) {
             Log::info("OrderController : order function error: " . $ex->getMessage());
         }
+    }
+
+    public function success(Request $request)
+    {
+        return $this->orderService->success($request);
     }
 }

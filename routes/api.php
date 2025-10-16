@@ -53,10 +53,13 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {
 
 
 
-    Route::post('/users/order/success', [OrderController::class, 'success'])->name('payment.success');
+   
+});
+
+
+ Route::post('/users/order/success', [OrderController::class, 'success'])->name('payment.success');
 Route::post('/users/order/fail', [OrderController::class, 'fail'])->name('payment.fail');
 Route::post('/users/order/cancel', [OrderController::class, 'cancel'])->name('payment.cancel');
-});
 
 
 
