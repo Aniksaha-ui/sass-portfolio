@@ -4,8 +4,12 @@ use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
-
 use App\Http\Controllers\User\Blog\UserBlogController;
+use App\Http\Controllers\User\Experience\ExperienceController;
+use App\Http\Controllers\User\Publication\PublicationController;
+use App\Http\Controllers\User\Service\ServiceController;
+use App\Http\Controllers\User\Testimonial\TestimonialController;
+use App\Http\Controllers\User\Training\TrainingController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -43,3 +47,7 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {});
 /** route for everyone **/
 Route::get('users/blogs', [UserBlogController::class, 'getAllBlogs']);
 Route::get('users/blogs/{id}', [UserBlogController::class, 'getBlogById']);
+Route::get('users/experience', [ExperienceController::class, 'getAllExperience']);
+Route::get('users/testimonial', [TestimonialController::class, 'getAllTestimonials']);
+Route::get('users/training', [TrainingController::class, 'getAllTraining']);
+Route::get('users/publication', [PublicationController::class, 'getAllPublication']);
