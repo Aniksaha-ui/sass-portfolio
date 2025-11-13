@@ -28,7 +28,7 @@ class TestimonialsService
                     $query->where('name', 'like', '%' . $search . '%')
                         ->orWhere('designation', 'like', '%' . $search . '%');
                 })
-                ->paginate($perPage, ['id', 'name', 'designation', 'rating', 'image_url', 'status'], 'page', $page);
+                ->paginate($perPage, ['id', 'name', 'designation', 'rating', 'image_url', 'status', 'feedback'], 'page', $page);
 
             if ($user->count() > 0) {
                 return [
