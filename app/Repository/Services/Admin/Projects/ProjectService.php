@@ -27,6 +27,7 @@ class ProjectService
             } else {
                 $request['image'] = 'images/trips/default.png';
             }
+            
 
             $projectId = DB::table('projects')->insertGetId($data);
             if ($projectId) {

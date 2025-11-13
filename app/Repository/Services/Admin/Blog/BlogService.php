@@ -21,6 +21,15 @@ class BlogService
     public function store($data)
     {
         try {
+              if (request()->hasFile('image')) {
+                $documentLink = FileManageHelper::uploadFile('blog', $data['image']);
+                $data['image'] = $documentLink;
+            } else {
+                $data['image'] = 'images/trips/default.png';
+            }
+
+            $data['published_date'] = now();
+
             $userId = DB::table('blogs')->insertGetId($data);
             if ($userId) {
                 return [

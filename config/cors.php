@@ -28,7 +28,7 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false, // Set this to true if you're using cookies or authentication
+    'supports_credentials' => true, // Set this to true if you're using cookies or authentication
 
 
 ];
