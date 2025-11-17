@@ -6,8 +6,8 @@ use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\User\Blog\UserBlogController;
 use App\Http\Controllers\User\Experience\ExperienceController;
+use App\Http\Controllers\User\Projects\ProjectController as UserProjectController;
 use App\Http\Controllers\User\Publication\PublicationController;
-use App\Http\Controllers\User\Service\ServiceController;
 use App\Http\Controllers\User\Testimonial\TestimonialController;
 use App\Http\Controllers\User\Training\TrainingController;
 use Illuminate\Support\Facades\Route;
@@ -51,3 +51,4 @@ Route::get('users/experience', [ExperienceController::class, 'getAllExperience']
 Route::get('users/testimonial', [TestimonialController::class, 'getAllTestimonials']);
 Route::get('users/training', [TrainingController::class, 'getAllTraining']);
 Route::get('users/publication', [PublicationController::class, 'getAllPublication']);
+Route::get('users/projects', [UserProjectController::class, 'getAllProjects']);
