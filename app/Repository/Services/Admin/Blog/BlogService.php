@@ -84,6 +84,8 @@ class BlogService
     public function getBlogById($id)
     {
         try {
+
+            $updateCount = DB::table('blogs')->where('id',$id)->increment('view_count', 1);
             $user = DB::table('blogs')->where('id', $id)->first();
             if ($user) {
                 return [
