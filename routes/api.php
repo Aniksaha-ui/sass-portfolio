@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Experience\AdminExperienceController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
+use App\Http\Controllers\Admin\Publication\AdminPublicationController;
 use App\Http\Controllers\Admin\Testimonial\AdminTestimonialController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
@@ -32,25 +33,26 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/blogs/{id}', [BlogController::class, 'getBlogById']);
     Route::post('admin/blogs/{id}', [BlogController::class, 'updateBlog']);
 
-
-
     Route::post('admin/projects', [ProjectController::class, 'addNewProject']);
     Route::get('admin/projects', [ProjectController::class, 'getAllProjects']);
     Route::get('admin/projects/{id}', [ProjectController::class, 'getProjectById']);
     Route::post('admin/projects/{id}', [ProjectController::class, 'updateProject']);
-
 
     Route::post('admin/experience', [AdminExperienceController::class, 'addNewExperience']);
     Route::get('admin/experience', [AdminExperienceController::class, 'getAllExperience']);
     Route::get('admin/experience/{id}', [AdminExperienceController::class, 'getExperienceById']);
     Route::post('admin/experience/{id}', [AdminExperienceController::class, 'updateExperience']);
 
-
-
     Route::post('admin/testimonial', [AdminTestimonialController::class, 'addNewTestimonial']);
     Route::get('admin/testimonial', [AdminTestimonialController::class, 'getAllTestimonials']);
     Route::get('admin/testimonial/{id}', [AdminTestimonialController::class, 'getTestimonialById']);
     Route::post('admin/testimonial/{id}', [AdminTestimonialController::class, 'updateTestimonial']);
+
+    Route::post('admin/publication', [AdminPublicationController::class, 'addNewPublication']);
+    Route::get('admin/publication', [AdminPublicationController::class, 'getAllPublication']);
+    Route::get('admin/publication/{id}', [AdminPublicationController::class, 'getPublicationById']);
+    Route::post('admin/publication/{id}', [AdminPublicationController::class, 'updatePublication']);    
+
 
 });
 
