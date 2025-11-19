@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\Blog\BlogController;
+use App\Http\Controllers\Admin\Experience\AdminExperienceController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
+use App\Http\Controllers\Admin\Testimonial\AdminTestimonialController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\User\Blog\UserBlogController;
@@ -36,6 +38,20 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/projects', [ProjectController::class, 'getAllProjects']);
     Route::get('admin/projects/{id}', [ProjectController::class, 'getProjectById']);
     Route::post('admin/projects/{id}', [ProjectController::class, 'updateProject']);
+
+
+    Route::post('admin/experience', [AdminExperienceController::class, 'addNewExperience']);
+    Route::get('admin/experience', [AdminExperienceController::class, 'getAllExperience']);
+    Route::get('admin/experience/{id}', [AdminExperienceController::class, 'getExperienceById']);
+    Route::post('admin/experience/{id}', [AdminExperienceController::class, 'updateExperience']);
+
+
+
+    Route::post('admin/testimonial', [AdminTestimonialController::class, 'addNewTestimonial']);
+    Route::get('admin/testimonial', [AdminTestimonialController::class, 'getAllTestimonials']);
+    Route::get('admin/testimonial/{id}', [AdminTestimonialController::class, 'getTestimonialById']);
+    Route::post('admin/testimonial/{id}', [AdminTestimonialController::class, 'updateTestimonial']);
+
 });
 
 
