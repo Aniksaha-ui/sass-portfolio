@@ -38,7 +38,7 @@ class BlogController extends Controller
     public function addNewBlog(Request $request)
     {
         try {
-
+            Log::info("request" .json_encode($request->all()));
             $insertedBlogInformation = $this->blogService->store($request->all());
             return response()->json([
                 "isExecuted" => $insertedBlogInformation['status'],
