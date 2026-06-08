@@ -30,4 +30,14 @@ class OrderController extends Controller
     {
         return $this->orderService->success($request);
     }
+
+    public function fail(Request $request)
+    {
+        return $this->orderService->fail($request);
+    }
+
+    public function cancel(Request $request)
+    {
+        return $this->orderService->cancel($request);
+    }
 }

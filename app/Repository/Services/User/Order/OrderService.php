@@ -224,6 +224,16 @@ class OrderService
         }
     }
 
+    public function fail(Request $request)
+    {
+        return $this->handlePaymentOutcome($request, 'failed', 'failed');
+    }
+
+    public function cancel(Request $request)
+    {
+        return $this->handlePaymentOutcome($request, 'cancelled', 'cancel');
+    }
+
     private function recordCompanyAccountSettlement($order, Request $request, array $verifyData, array $paymentChannel): void
     {
         $transactionReference = $this->resolveTransactionReference($request, $verifyData);
@@ -320,6 +330,79 @@ class OrderService
             ?? '';
 
         return substr((string) $reference, 0, 20);
+    }
+
+    private function handlePaymentOutcome(Request $request, string $paymentStatus, string $frontendStatus)
+    {
+        DB::beginTransaction();
+
+        try {
+            Log::info(sprintf('Payment %s Callback: %s', ucfirst($paymentStatus), json_encode($request->all())));
+
+            $order = $this->resolveOrderFromCallback($request);
+
+            if (! $order) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'failed',
+                    'message' => 'Order not found',
+                ], 404);
+            }
+
+            DB::table('orders')->where('id', $order->id)->update([
+                'status' => $paymentStatus,
+                'payment_status' => $paymentStatus,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('transactions')->where('order_id', $order->id)->update([
+                'status' => $paymentStatus,
+            ]);
+
+            DB::table('order_tracking')->insert([
+                'order_id' => $order->id,
+                'status' => $paymentStatus,
+                'location' => $request->card_issuer_country_code ?? 'N/A',
+            ]);
+
+            DB::commit();
+
+            return redirect($this->buildFrontendPaymentUrl($frontendStatus, $request->tran_id));
+        } catch (Exception $ex) {
+            DB::rollBack();
+            Log::error(sprintf('PaymentService : payment%s() => %s', ucfirst($paymentStatus), $ex->getMessage()));
+
+            return response()->json([
+                'status' => 'failed',
+                'message' => $ex->getMessage(),
+            ]);
+        }
+    }
+
+    private function resolveOrderFromCallback(Request $request)
+    {
+        $orderId = $request->value_a;
+
+        if (! empty($orderId)) {
+            return DB::table('orders')->where('id', $orderId)->first();
+        }
+
+        if (! empty($request->tran_id)) {
+            return DB::table('orders')->where('tran_id', $request->tran_id)->first();
+        }
+
+        return null;
+    }
+
+    private function buildFrontendPaymentUrl(string $status, ?string $transactionId): string
+    {
+        $baseUrl = rtrim((string) env('FRONTEND_URL'), '/');
+        $query = http_build_query(array_filter([
+            'tran_id' => $transactionId,
+            'status' => $status,
+        ]));
+
+        return $baseUrl.'/payment/'.$status.($query !== '' ? '?'.$query : '');
     }
 
     private function resolveSettledAmount($order, array $verifyData): float
