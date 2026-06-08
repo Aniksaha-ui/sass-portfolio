@@ -61,6 +61,20 @@ class ProductController extends Controller
         }
     }
 
+    public function allCategories()
+    {
+        try {
+            $categories = $this->productService->getAllCategories();
+
+            return response()->json([
+                "isExecuted" => $categories['status'],
+                "message" => $categories['message'],
+                "data" => $categories['data']
+            ], 200);
+        } catch (Exception $ex) {
+            Log::info("ProductController : allCategories function error: " . $ex->getMessage());
+        }
+    }
 
     public function categoryWiseProducts($id)
     {

@@ -50,7 +50,8 @@ Route::post('/users/order/cancel', [OrderController::class, 'cancel'])->name('pa
 Route::get('users/products', [ProductController::class, 'homePageProducts']);
 Route::get('users/products/{id}', [ProductController::class, 'productDetails']);
 Route::get('users/category/products/{id}', [ProductController::class, 'categoryWiseProducts']);
-Route::get('users/category', [ProductController::class, 'categoryWiseProducts']);
+Route::get('users/category', [ProductController::class, 'allCategories']);
+Route::get('users/categories', [ProductController::class, 'allCategories']);
 
 
 

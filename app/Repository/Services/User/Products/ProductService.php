@@ -125,6 +125,32 @@ class ProductService
         }
     }
 
+    public function getAllCategories()
+    {
+        try {
+            $categories = DB::table('categories')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+
+            if ($categories->count() > 0) {
+                return [
+                    "status" => ResponseConstants::SUCCESS,
+                    "message" => "Categories fetched successfully",
+                    "data" => $categories
+                ];
+            }
+
+            return [
+                "status" => ResponseConstants::SUCCESS,
+                "message" => "No category found",
+                "data" => []
+            ];
+        } catch (Exception $ex) {
+            Log::error("ProductService : getAllCategories function error: " . $ex->getMessage());
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
+        }
+    }
 
     public function getCategoryWiseProducts($id)
     {
