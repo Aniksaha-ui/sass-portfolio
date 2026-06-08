@@ -52,7 +52,11 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "scripts": {
+        "patch-laravel-php84": [
+            "@php scripts/patch-laravel-php84.php"
+        ],
         "post-autoload-dump": [
+            "@patch-laravel-php84",
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
         ],

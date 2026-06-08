@@ -28,18 +28,6 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/blogs', [BlogController::class, 'getAllBlogs']);
     Route::get('admin/blogs/{id}', [BlogController::class, 'getBlogById']);
     Route::post('admin/blogs/{id}', [BlogController::class, 'updateBlog']);
-
-
-
-    Route::post('admin/projects', [ProjectController::class, 'addNewProject']);
-    Route::get('admin/projects', [ProjectController::class, 'getAllProjects']);
-    Route::get('admin/projects/{id}', [ProjectController::class, 'getProjectById']);
-    Route::post('admin/projects/{id}', [ProjectController::class, 'updateProject']);
-
-    Route::post('admin/experience', [ProjectController::class, 'addNewExperience']);
-    Route::get('admin/experience', [ProjectController::class, 'getAllExperience']);
-    Route::get('admin/experience/{id}', [ProjectController::class, 'getExperienceById']);
-    Route::post('admin/experience/{id}', [ProjectController::class, 'updateExperience']);
 });
 
 
@@ -49,11 +37,6 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {
     Route::get('users/mycart', [CartController::class, 'getMyCart']);
     Route::get('users/applycoupon/{id}', [CartController::class, 'applyCoupon']);
     Route::post('users/order', [OrderController::class, 'order']);
-
-
-
-
-   
 });
 
 
@@ -67,8 +50,15 @@ Route::post('/users/order/cancel', [OrderController::class, 'cancel'])->name('pa
 Route::get('users/products', [ProductController::class, 'homePageProducts']);
 Route::get('users/products/{id}', [ProductController::class, 'productDetails']);
 Route::get('users/category/products/{id}', [ProductController::class, 'categoryWiseProducts']);
+Route::get('users/category', [ProductController::class, 'categoryWiseProducts']);
 
 
 
 Route::get('users/blogs', [UserBlogController::class, 'getAllBlogs']);
 Route::get('users/blogs/{id}', [UserBlogController::class, 'getBlogById']);
+
+
+
+ Route::post('/users/order/success', [OrderController::class, 'success'])->name('payment.success');
+Route::post('/users/order/fail', [OrderController::class, 'fail'])->name('payment.fail');
+Route::post('/users/order/cancel', [OrderController::class, 'cancel'])->name('payment.cancel');

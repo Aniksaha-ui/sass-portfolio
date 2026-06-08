@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Http;
 
 class OrderService
 {
+    private const DEFAULT_COMPANY_ACCOUNT_TYPE = 'account';
+    private const ACCOUNT_HISTORY_PURPOSE = 'order_payment';
 
     private $commonService;
     public function __construct(CommonService $commonService)
@@ -140,6 +142,7 @@ class OrderService
         DB::beginTransaction();
 
         try {
+            Log::info("Payment Success Callback: " . json_encode($request->all()));
             $tran_id = $request->tran_id;
 
             // Verify payment authenticity with SSLCommerz
@@ -161,8 +164,16 @@ class OrderService
 
 
             if ($verifyData['status'] === 'VALID' || $verifyData['status'] === 'VALIDATED') {
+                $paymentChannel = $this->resolvePaymentChannel($verifyData);
+                $order = DB::table('orders')->where('id', $verifyData['value_a'])->first();
+
+                if (! $order) {
+                    DB::rollBack();
+                    return response()->json(['status' => 'failed', 'message' => 'Order not found']);
+                }
+
                 // Update order & transaction
-                $orderPaymentStatus =  DB::table('orders')->where('id', $verifyData['value_a'])->update([
+                DB::table('orders')->where('id', $verifyData['value_a'])->update([
                     'status' => 'processing',
                     'payment_status' => 'paid',
                     'tran_id' => $request->tran_id,
@@ -183,11 +194,20 @@ class OrderService
                     'cus_phone' => $verifyData['cus_phone'],
                     'discount_percentage' => $verifyData['discount_percentage'] ?? null,
                     'discount_remarks' => $verifyData['discount_remarks'] ?? null,
+                    'payment_method' => $paymentChannel['type'],
                 ]);
+
+                $this->recordCompanyAccountSettlement($order, $request, $verifyData, $paymentChannel);
+
+                DB::table('order_tracking')->insert([
+                    'order_id' => $verifyData['value_a'],
+                    'status' => 'pending',
+                    'location' => $request->card_issuer_country_code ?? 'N/A',
+                    ]);
 
                 // order information update
 
-                $cart = DB::table('cart')->where('user_id', Auth::id())->delete();
+                DB::table('cart')->where('user_id', $order->user_id)->delete();
 
                 DB::commit();
 
@@ -202,5 +222,138 @@ class OrderService
             Log::error("PaymentService : paymentSuccess() => " . $ex->getMessage());
             return response()->json(['status' => 'failed', 'message' => $ex->getMessage()]);
         }
+    }
+
+    private function recordCompanyAccountSettlement($order, Request $request, array $verifyData, array $paymentChannel): void
+    {
+        $transactionReference = $this->resolveTransactionReference($request, $verifyData);
+
+        $historyAlreadyExists = DB::table('account_history')
+            ->where('transaction_reference', $transactionReference)
+            ->where('purpose', self::ACCOUNT_HISTORY_PURPOSE)
+            ->exists();
+
+        if ($historyAlreadyExists) {
+            return;
+        }
+
+        $settledAmount = $this->resolveSettledAmount($order, $verifyData);
+        $historyAmount = $settledAmount;
+
+        $companyAccount = DB::table('company_accounts')
+            ->whereRaw('LOWER(type) = ?', [$paymentChannel['type']])
+            ->first();
+
+        if (! $companyAccount) {
+            $companyAccountId = DB::table('company_accounts')->insertGetId([
+                'account_name' => $paymentChannel['name'],
+                'account_number' => $paymentChannel['account_number'],
+                'amount' => 0,
+                'type' => $paymentChannel['type'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $companyAccount = DB::table('company_accounts')->where('id', $companyAccountId)->first();
+        }
+
+        DB::table('company_accounts')
+            ->where('id', $companyAccount->id)
+            ->update([
+                'amount' => (float) $companyAccount->amount + $settledAmount,
+                'updated_at' => now(),
+            ]);
+
+        DB::table('account_history')->insert([
+            'user_id' => $order->user_id,
+            'user_account_type' => $this->limitValue($verifyData['card_type'] ?? $verifyData['card_brand'] ?? $verifyData['card_issuer'] ?? null, 20),
+            'user_account_no' => $this->limitValue($verifyData['card_no'] ?? $request->card_no ?? null, 20),
+            'getaway' => $this->limitValue($paymentChannel['type'], 20),
+            'amount' => $historyAmount,
+            'com_account_no' => $this->limitValue($companyAccount->account_number, 20),
+            'transaction_reference' => $transactionReference,
+            'transaction_type' => 'c',
+            'purpose' => self::ACCOUNT_HISTORY_PURPOSE,
+            'tran_date' => $this->normalizeTransactionDate($verifyData['tran_date'] ?? null),
+            'ip_address' => $this->limitValue($request->ip(), 20),
+        ]);
+    }
+
+    private function resolvePaymentChannel(array $verifyData): array
+    {
+        $brandSource = strtolower(implode(' ', array_filter([
+            $verifyData['card_brand'] ?? null,
+            $verifyData['card_type'] ?? null,
+            $verifyData['card_issuer'] ?? null,
+            $verifyData['card_sub_brand'] ?? null,
+        ])));
+
+        if (strpos($brandSource, 'bkash') !== false) {
+            return [
+                'type' => 'bkash',
+                'name' => 'bKash',
+                'account_number' => 'bkash',
+            ];
+        }
+
+        if (strpos($brandSource, 'nagad') !== false) {
+            return [
+                'type' => 'nagad',
+                'name' => 'Nagad',
+                'account_number' => 'nagad',
+            ];
+        }
+
+        return [
+            'type' => self::DEFAULT_COMPANY_ACCOUNT_TYPE,
+            'name' => 'Account',
+            'account_number' => self::DEFAULT_COMPANY_ACCOUNT_TYPE,
+        ];
+    }
+
+    private function resolveTransactionReference(Request $request, array $verifyData): string
+    {
+        $reference = $verifyData['bank_tran_id']
+            ?? $request->bank_tran_id
+            ?? $request->tran_id
+            ?? $verifyData['tran_id']
+            ?? '';
+
+        return substr((string) $reference, 0, 20);
+    }
+
+    private function resolveSettledAmount($order, array $verifyData): float
+    {
+        if (isset($verifyData['store_amount']) && is_numeric($verifyData['store_amount'])) {
+            return (float) $verifyData['store_amount'];
+        }
+
+        if (isset($verifyData['amount']) && is_numeric($verifyData['amount'])) {
+            return (float) $verifyData['amount'];
+        }
+
+        return (float) ($order->total_amount ?? 0);
+    }
+
+    private function normalizeTransactionDate(?string $transactionDate): string
+    {
+        if (empty($transactionDate)) {
+            return now()->toDateTimeString();
+        }
+
+        $timestamp = strtotime($transactionDate);
+
+        return $timestamp === false
+            ? now()->toDateTimeString()
+            : date('Y-m-d H:i:s', $timestamp);
+    }
+
+    private function limitValue(?string $value, int $length): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return substr($value, 0, $length);
     }
 }
