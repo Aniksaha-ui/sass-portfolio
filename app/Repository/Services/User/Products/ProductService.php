@@ -95,7 +95,7 @@ class ProductService
                 ->join('inventory as i', 'i.product_id', '=', 'products.id')
                 ->select(
                     'products.id as product_id',
-                    'products.name as productsroduct_name',
+                    'products.name as product_name',
                     'categories.name as category_name',
                     'subcategories.name as subcategory_name',
                     'products.description',
@@ -166,7 +166,7 @@ class ProductService
                 ->join('inventory as i', 'i.product_id', '=', 'products.id')
                 ->select(
                     'products.id as product_id',
-                    'products.name as productsroduct_name',
+                    'products.name as product_name',
                     'categories.name as category_name',
                     'subcategories.name as subcategory_name',
                     'products.description',
