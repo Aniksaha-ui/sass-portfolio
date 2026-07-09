@@ -2,56 +2,52 @@
 
 namespace App\Repository\Services\User\Cart;
 
-
 use App\Constants\CouponTypeConstant;
 use App\Constants\ResponseConstants;
 use App\Repository\Services\Common\CommonService;
-use Exception;
-use Illuminate\Support\Facades\Log;
 use DB;
+use Exception;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class CartService
 {
-
     private $commonService;
+
     public function __construct(CommonService $commonService)
     {
         $this->commonService = $commonService;
     }
 
-
-
     public function addToCart($data)
     {
         try {
-
             DB::beginTransaction();
 
             $cartAlreadyExist = DB::table('cart')
                 ->where('user_id', Auth::user()->id)
                 ->first();
 
-            #check already this user have any cart previously
             if ($cartAlreadyExist) {
                 $cartId = $cartAlreadyExist->id;
-
                 $cartItems = [];
+                $hasUpdatedExistingItem = false;
+
                 foreach ($data as $item) {
-                    #if product already exist in cart then update quantity
                     $product = DB::table('cart_items')
                         ->where('cart_id', $cartId)
                         ->where('product_id', $item['product_id'])
                         ->first();
+
                     if ($product) {
                         DB::table('cart_items')
                             ->where('cart_id', $cartId)
                             ->where('product_id', $item['product_id'])
                             ->update(['quantity' => $product->quantity + $item['quantity']]);
+                        $hasUpdatedExistingItem = true;
                         continue;
                     }
 
-                    #if product not exist in cart then add
                     $cartItems[] = [
                         'cart_id' => $cartId,
                         'product_id' => $item['product_id'],
@@ -59,75 +55,161 @@ class CartService
                     ];
                 }
 
-                #insert into cart items
-                $cartProducts = DB::table('cart_items')->insert($cartItems);
+                $hasInsertedNewItems = !empty($cartItems)
+                    ? DB::table('cart_items')->insert($cartItems)
+                    : false;
 
-                if ($cartProducts && $cartProducts) {
+                if ($hasUpdatedExistingItem || $hasInsertedNewItems) {
                     DB::commit();
                     return [
-                        "status" => ResponseConstants::SUCCESS,
-                        "message" => "Product added to cart successfully",
-                        "data" => []
-                    ];
-                } else {
-                    DB::rollBack();
-                    return [
-                        "status" => ResponseConstants::FAILED,
-                        "message" => "Product not added to cart",
-                        "data" => []
+                        'status' => ResponseConstants::SUCCESS,
+                        'message' => 'Product added to cart successfully',
+                        'data' => [],
                     ];
                 }
+
+                DB::rollBack();
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Product not added to cart',
+                    'data' => [],
+                ];
             }
 
-            #if user have no cart previously
-            $cartInfo = [
+            $cartId = DB::table('cart')->insertGetId([
                 'user_id' => Auth::user()->id,
-            ];
+            ]);
 
-            #create cart 
-            $cartId = DB::table('cart')->insertGetId($cartInfo);
             $cartItems = [];
             foreach ($data as $item) {
-                #if product already exist in cart then update quantity
-                $product = DB::table('cart_items')
-                    ->where('cart_id', $cartId)
-                    ->where('product_id', $item['product_id'])
-                    ->first();
-                if ($product) {
-                    DB::table('cart_items')
-                        ->where('cart_id', $cartId)
-                        ->where('product_id', $item['product_id'])
-                        ->update(['quantity' => $product->quantity + $item['quantity']]);
-                    continue;
-                }
-                #add to cart item
                 $cartItems[] = [
                     'cart_id' => $cartId,
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
                 ];
             }
-            #insert into cart items
+
             $cartProducts = DB::table('cart_items')->insert($cartItems);
 
-            if ($cartProducts && $cartProducts) {
+            if ($cartProducts) {
                 DB::commit();
                 return [
-                    "status" => ResponseConstants::SUCCESS,
-                    "message" => "Product added to cart successfully",
-                    "data" => []
-                ];
-            } else {
-                DB::rollBack();
-                return [
-                    "status" => ResponseConstants::FAILED,
-                    "message" => "Product not added to cart",
-                    "data" => []
+                    'status' => ResponseConstants::SUCCESS,
+                    'message' => 'Product added to cart successfully',
+                    'data' => [],
                 ];
             }
+
+            DB::rollBack();
+            return [
+                'status' => ResponseConstants::FAILED,
+                'message' => 'Product not added to cart',
+                'data' => [],
+            ];
         } catch (Exception $ex) {
-            Log::error("CartService : addToCart function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
+            DB::rollBack();
+            Log::error('CartService : addToCart function error: ' . $ex->getMessage());
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, 'Internal Server Error. Please Contact Admin', []);
+        }
+    }
+
+    public function updateCart($data)
+    {
+        try {
+            $cartItemId = $data['id'] ?? null;
+            $quantity = (int) ($data['quantity'] ?? 0);
+
+            if (!$cartItemId) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Cart item id is required',
+                    'data' => [],
+                ];
+            }
+
+            if ($quantity < 1) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Quantity must be at least 1',
+                    'data' => [],
+                ];
+            }
+
+            $cartItem = DB::table('cart_items')
+                ->join('cart', 'cart.id', '=', 'cart_items.cart_id')
+                ->where('cart.user_id', Auth::user()->id)
+                ->where('cart_items.id', $cartItemId)
+                ->select('cart_items.id')
+                ->first();
+
+            if (!$cartItem) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Cart item not found',
+                    'data' => [],
+                ];
+            }
+
+            DB::table('cart_items')
+                ->where('id', $cartItemId)
+                ->update(['quantity' => $quantity]);
+
+            return [
+                'status' => ResponseConstants::SUCCESS,
+                'message' => 'Cart updated successfully',
+                'data' => [],
+            ];
+        } catch (Exception $ex) {
+            Log::error('CartService : updateCart function error: ' . $ex->getMessage());
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, 'Internal Server Error. Please Contact Admin', []);
+        }
+    }
+
+    public function removeCartItem($cartItemId)
+    {
+        try {
+            $cartItem = DB::table('cart_items')
+                ->join('cart', 'cart.id', '=', 'cart_items.cart_id')
+                ->where('cart.user_id', Auth::user()->id)
+                ->where('cart_items.id', $cartItemId)
+                ->select('cart_items.id', 'cart_items.cart_id')
+                ->first();
+
+            if (!$cartItem) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Cart item not found',
+                    'data' => [],
+                ];
+            }
+
+            DB::beginTransaction();
+
+            DB::table('cart_items')
+                ->where('id', $cartItemId)
+                ->delete();
+
+            $remainingItems = DB::table('cart_items')
+                ->where('cart_id', $cartItem->cart_id)
+                ->count();
+
+            if ($remainingItems === 0) {
+                DB::table('cart')
+                    ->where('id', $cartItem->cart_id)
+                    ->delete();
+            }
+
+            DB::commit();
+
+            return [
+                'status' => ResponseConstants::SUCCESS,
+                'message' => 'Cart item removed successfully',
+                'data' => [],
+            ];
+        } catch (Exception $ex) {
+            DB::rollBack();
+            Log::error('CartService : removeCartItem function error: ' . $ex->getMessage());
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, 'Internal Server Error. Please Contact Admin', []);
         }
     }
 
@@ -137,24 +219,26 @@ class CartService
             $cartProducts = DB::table('cart')
                 ->join('cart_items', 'cart.id', '=', 'cart_items.cart_id')
                 ->join('products', 'cart_items.product_id', '=', 'products.id')
+                ->where('cart.user_id', Auth::user()->id)
                 ->select('products.name', 'products.price', 'cart_items.*')
                 ->get();
+
             if ($cartProducts->count() > 0) {
                 return [
-                    "status" => ResponseConstants::SUCCESS,
-                    "message" => "Cart Product fetched successfully",
-                    "data" => $cartProducts
-                ];
-            } else {
-                return [
-                    "status" => ResponseConstants::SUCCESS,
-                    "message" => "No product in cart found",
-                    "data" => []
+                    'status' => ResponseConstants::SUCCESS,
+                    'message' => 'Cart Product fetched successfully',
+                    'data' => $cartProducts,
                 ];
             }
+
+            return [
+                'status' => ResponseConstants::SUCCESS,
+                'message' => 'No product in cart found',
+                'data' => [],
+            ];
         } catch (Exception $ex) {
-            Log::error("ProductService :myCart function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
+            Log::error('ProductService :myCart function error: ' . $ex->getMessage());
+            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, 'Internal Server Error. Please Contact Admin', []);
         }
     }
 
@@ -174,50 +258,42 @@ class CartService
                     return [
                         'status' => ResponseConstants::SUCCESS,
                         'message' => 'Coupon not found',
-                        'data' => []
+                        'data' => [],
                     ];
                 }
 
-
-                if ($coupon) {
-                    if ($coupon->discount_value > $totalAmount) {
-                        return [
-                            'status' => ResponseConstants::SUCCESS,
-                            'message' => 'Coupon amount is greater than total amount',
-                            'data' => [
-                                "totalAmount" => $totalAmount,
-                                "couponAmount" => 0,
-                                "grandTotal" => $totalAmount - 0
-                            ]
-                        ];
-                    }
-
-                    $discountType = $coupon->discount_type;
-                    if ($discountType == CouponTypeConstant::PERCENTAGE) {
-                        $couponAmount = $totalAmount * $coupon->discount_value / 100;
-                    } else {
-                        $couponAmount = $coupon->discount_value;
-                    }
+                if ($coupon->discount_value > $totalAmount) {
                     return [
-                        "status" => ResponseConstants::SUCCESS,
-                        "message" => "Coupon applied successfully",
-                        "data" => [
-                            "totalAmount" => $totalAmount,
-                            "couponAmount" => $couponAmount,
-                            "grandTotal" => $totalAmount - $couponAmount
-                        ]
+                        'status' => ResponseConstants::SUCCESS,
+                        'message' => 'Coupon amount is greater than total amount',
+                        'data' => [
+                            'totalAmount' => $totalAmount,
+                            'couponAmount' => 0,
+                            'grandTotal' => $totalAmount,
+                        ],
                     ];
+                }
+
+                $discountType = $coupon->discount_type;
+                if ($discountType == CouponTypeConstant::PERCENTAGE) {
+                    $couponAmount = $totalAmount * $coupon->discount_value / 100;
                 } else {
-                    return [
-                        "status" => ResponseConstants::SUCCESS,
-                        "message" => "No coupon found",
-                        "data" => []
-                    ];
+                    $couponAmount = $coupon->discount_value;
                 }
+
+                return [
+                    'status' => ResponseConstants::SUCCESS,
+                    'message' => 'Coupon applied successfully',
+                    'data' => [
+                        'totalAmount' => $totalAmount,
+                        'couponAmount' => $couponAmount,
+                        'grandTotal' => $totalAmount - $couponAmount,
+                    ],
+                ];
             }
         } catch (Exception $ex) {
-            Log::error("CartService : applyCoupon function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(false, "Internal Server Error. Please Contact Admin", []);
+            Log::error('CartService : applyCoupon function error: ' . $ex->getMessage());
+            return $this->commonService->internalServerErrorResponse(false, 'Internal Server Error. Please Contact Admin', []);
         }
     }
 }
