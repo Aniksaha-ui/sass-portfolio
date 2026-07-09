@@ -219,9 +219,18 @@ class CartService
             $cartProducts = DB::table('cart')
                 ->join('cart_items', 'cart.id', '=', 'cart_items.cart_id')
                 ->join('products', 'cart_items.product_id', '=', 'products.id')
+                ->join('product_images', 'products.id', '=', 'product_images.product_id')
                 ->where('cart.user_id', Auth::user()->id)
-                ->select('products.name', 'products.price', 'cart_items.*')
+                ->where('is_primary', 1)
+                ->select(
+                    'products.name',
+                    'products.price',
+                    'product_images.image_url',
+                    'cart_items.*'
+                )
                 ->get();
+
+            Log::info('CartService : myCart function executed successfully. Response' . json_encode($cartProducts));
 
             if ($cartProducts->count() > 0) {
                 return [

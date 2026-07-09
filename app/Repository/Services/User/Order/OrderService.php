@@ -108,8 +108,8 @@ class OrderService
 
 
             $url = env('IS_SANDBOX')
-                ? 'https://dev-securepay.sslcommerz.com/gwprocess/v4/api.php'
-                : 'https://dev-securepay.sslcommerz.com/gwprocess/v4/api.php';
+                ? 'https://uat-securepay.sslcommerz.com/gwprocess/v4/api.php'
+                : 'https://uat-securepay.sslcommerz.com/gwprocess/v4/api.php';
 
             $response = Http::asForm()->post($url, $post_data);
             $sslResponse = $response->json();
@@ -147,8 +147,8 @@ class OrderService
 
             // Verify payment authenticity with SSLCommerz
             $verifyURL = env('IS_SANDBOX')
-                ? "https://dev-securepay.sslcommerz.com/validator/api/validationserverAPI.php"
-                : "https://dev-securepay.sslcommerz.com/validator/api/validationserverAPI.php";
+                ? "https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php"
+                : "https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php";
 
 
 
@@ -211,8 +211,7 @@ class OrderService
 
                 DB::commit();
 
-                $frontendUrl = env('FRONTEND_URL') . '/payment/success?tran_id=' . $request->tran_id . '&status=success';
-                return redirect($frontendUrl);
+                return redirect($this->buildFrontendPaymentUrl('success', $request->tran_id));
             }
 
             DB::rollBack();
