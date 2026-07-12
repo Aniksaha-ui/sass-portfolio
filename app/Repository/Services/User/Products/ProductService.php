@@ -54,7 +54,8 @@ class ProductService
                 ->where(function ($query) use ($search) {
                     $query->where('p.name', 'like', '%' . $search . '%')
                         ->orWhere('subcategories.name', 'like', '%' . $search . '%')
-                        ->orWhere('categories.name', 'like', '%' . $search . '%');
+                        ->orWhere('categories.name', 'like', '%' . $search . '%')
+                        ->orWhere('price', 'like', '%' . $search . '%');
                 })
                 ->orderBy('s.display_order', 'asc')
                 ->orderBy('sp.display_order', 'asc')
@@ -96,6 +97,7 @@ class ProductService
                 ->select(
                     'products.id as product_id',
                     'products.name as product_name',
+                    'products.sku as product_sku',
                     'categories.name as category_name',
                     'subcategories.name as subcategory_name',
                     'products.description',
