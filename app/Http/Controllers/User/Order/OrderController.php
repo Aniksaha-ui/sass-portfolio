@@ -26,6 +26,34 @@ class OrderController extends Controller
         }
     }
 
+    public function getMyOrders()
+    {
+        try {
+            $response = $this->orderService->myOrders();
+            return response()->json([
+                'isExecuted' => $response['status'],
+                'message' => $response['message'],
+                'data' => $response['data'],
+            ], 200);
+        } catch (Exception $ex) {
+            Log::info('OrderController : getMyOrders function error: ' . $ex->getMessage());
+        }
+    }
+
+    public function getOrderDetails($id)
+    {
+        try {
+            $response = $this->orderService->orderDetails($id);
+            return response()->json([
+                'isExecuted' => $response['status'],
+                'message' => $response['message'],
+                'data' => $response['data'],
+            ], $response['status'] ? 200 : 404);
+        } catch (Exception $ex) {
+            Log::info('OrderController : getOrderDetails function error: ' . $ex->getMessage());
+        }
+    }
+
     public function success(Request $request)
     {
         return $this->orderService->success($request);

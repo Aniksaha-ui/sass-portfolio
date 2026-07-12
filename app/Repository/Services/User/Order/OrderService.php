@@ -2,17 +2,14 @@
 
 namespace App\Repository\Services\User\Order;
 
-
-use App\Constants\CouponTypeConstant;
 use App\Constants\ResponseConstants;
 use App\Repository\Services\Common\CommonService;
-use Exception;
-use Illuminate\Support\Facades\Log;
 use DB;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Support\Facades\Log;
 
 class OrderService
 {
@@ -20,27 +17,95 @@ class OrderService
     private const ACCOUNT_HISTORY_PURPOSE = 'order_payment';
 
     private $commonService;
+
     public function __construct(CommonService $commonService)
     {
         $this->commonService = $commonService;
     }
 
-
-
     public function order($data)
     {
         try {
-
-            if ($data['payment_method'] === 'ssl') {
+            if (($data['payment_method'] ?? '') === 'ssl') {
                 return $this->initSSLTransaction($data);
             }
+
             return ['status' => 'failed', 'message' => 'Invalid payment method'];
         } catch (Exception $ex) {
-            Log::error("OrderService : order function error: " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
+            Log::error('OrderService : order function error: '.$ex->getMessage());
+
+            return $this->commonService->internalServerErrorResponse(
+                ResponseConstants::FAILED,
+                'Internal Server Error. Please Contact Admin',
+                []
+            );
         }
     }
 
+    public function myOrders()
+    {
+        try {
+            $orders = DB::table('orders')
+                ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) AS item_count FROM order_items GROUP BY order_id) AS order_items_summary'), 'orders.id', '=', 'order_items_summary.order_id')
+                ->where('orders.user_id', Auth::id())
+                ->orderByDesc('orders.id')
+                ->select(
+                    'orders.*',
+                    DB::raw('COALESCE(order_items_summary.item_count, 0) AS item_count')
+                )
+                ->get();
+
+            $data = $orders->map(function ($order) {
+                return $this->transformOrderSummary($order);
+            })->values();
+
+            return [
+                'status' => ResponseConstants::SUCCESS,
+                'message' => $data->count() > 0 ? 'Orders fetched successfully' : 'No orders found',
+                'data' => $data,
+            ];
+        } catch (Exception $ex) {
+            Log::error('OrderService : myOrders function error: '.$ex->getMessage());
+
+            return $this->commonService->internalServerErrorResponse(
+                ResponseConstants::FAILED,
+                'Internal Server Error. Please Contact Admin',
+                []
+            );
+        }
+    }
+
+    public function orderDetails($id)
+    {
+        try {
+            $order = DB::table('orders')
+                ->where('id', $id)
+                ->where('user_id', Auth::id())
+                ->first();
+
+            if (! $order) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Order not found',
+                    'data' => [],
+                ];
+            }
+
+            return [
+                'status' => ResponseConstants::SUCCESS,
+                'message' => 'Order details fetched successfully',
+                'data' => $this->transformOrderDetails($order),
+            ];
+        } catch (Exception $ex) {
+            Log::error('OrderService : orderDetails function error: '.$ex->getMessage());
+
+            return $this->commonService->internalServerErrorResponse(
+                ResponseConstants::FAILED,
+                'Internal Server Error. Please Contact Admin',
+                []
+            );
+        }
+    }
 
     public function initSSLTransaction($paymentInformation)
     {
@@ -48,6 +113,7 @@ class OrderService
 
         try {
             $tran_id = uniqid('SSL_');
+            $preparedCartData = $this->prepareOrderCartData($paymentInformation);
 
             $orderId = DB::table('orders')->insertGetId([
                 'user_id' => Auth::id(),
@@ -55,13 +121,12 @@ class OrderService
                 'total_amount' => $paymentInformation['totalAmount'],
                 'status' => 'pending',
                 'payment_status' => 'unpaid',
-                'cart_data' => json_encode($paymentInformation['products']),
+                'cart_data' => json_encode($preparedCartData),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-
-            foreach ($paymentInformation['products'] as $product) {
+            foreach ($preparedCartData['products'] as $product) {
                 DB::table('order_items')->insert([
                     'order_id' => $orderId,
                     'product_id' => $product['product_id'],
@@ -79,7 +144,6 @@ class OrderService
                 'created_at' => now(),
             ]);
 
-
             $post_data = [
                 'store_id' => env('STORE_ID'),
                 'store_passwd' => env('STORE_PASSWORD'),
@@ -90,22 +154,20 @@ class OrderService
                 'fail_url' => route('payment.fail'),
                 'cancel_url' => route('payment.cancel'),
                 'emi_option' => 0,
-                'cus_name' => $paymentInformation['userInformation']['name'],
+                'cus_name' => $preparedCartData['userInformation']['name'] ?? Auth::user()->name,
                 'cus_email' => Auth::user()->email,
-                'cus_add1' => $paymentInformation['userInformation']['address'] ?? 'N/A',
-                'cus_city' => $paymentInformation['userInformation']['city'] ?? 'N/A',
-                'cus_state' => $paymentInformation['userInformation']['state'] ?? 'N/A',
-                'cus_postcode' => $paymentInformation['userInformation']['zip'] ?? '0000',
-                'cus_country' => 'Bangladesh',
-                'cus_phone' => $paymentInformation['userInformation']['phone'] ?? 'N/A',
+                'cus_add1' => $preparedCartData['userInformation']['address'] ?? 'N/A',
+                'cus_city' => $preparedCartData['userInformation']['city'] ?? 'N/A',
+                'cus_state' => $preparedCartData['userInformation']['state'] ?? 'N/A',
+                'cus_postcode' => $preparedCartData['userInformation']['zip'] ?? '0000',
+                'cus_country' => $preparedCartData['userInformation']['country'] ?? 'Bangladesh',
+                'cus_phone' => $preparedCartData['userInformation']['phone'] ?? 'N/A',
                 'shipping_method' => 'NO',
-                'product_name' => 'Order #' . $orderId,
+                'product_name' => 'Order #'.$orderId,
                 'product_category' => 'Ecommerce',
                 'product_profile' => 'general',
-                'value_a' => $orderId, // Custom field to track order
+                'value_a' => $orderId,
             ];
-
-
 
             $url = env('IS_SANDBOX')
                 ? 'https://uat-securepay.sslcommerz.com/gwprocess/v4/api.php'
@@ -114,65 +176,63 @@ class OrderService
             $response = Http::asForm()->post($url, $post_data);
             $sslResponse = $response->json();
 
-            if (!empty($sslResponse['GatewayPageURL'])) {
+            if (! empty($sslResponse['GatewayPageURL'])) {
                 DB::commit();
+
                 return [
                     'status' => 'success',
                     'url' => $sslResponse['GatewayPageURL'],
                     'tran_id' => $tran_id,
-                    'message' => 'Redirect to SSLCommerz gateway'
+                    'message' => 'Redirect to SSLCommerz gateway',
                 ];
-            } else {
-                DB::rollBack();
-                return ['status' => 'failed', 'message' => 'SSLCommerz gateway initialization failed'];
             }
+
+            DB::rollBack();
+
+            return ['status' => 'failed', 'message' => 'SSLCommerz gateway initialization failed'];
         } catch (Exception $ex) {
             DB::rollBack();
-            Log::error("PaymentService : initSSLTransaction() => " . $ex->getMessage());
-            return $this->commonService->internalServerErrorResponse(ResponseConstants::FAILED, "Internal Server Error. Please Contact Admin", []);
+            Log::error('PaymentService : initSSLTransaction() => '.$ex->getMessage());
+
+            return $this->commonService->internalServerErrorResponse(
+                ResponseConstants::FAILED,
+                'Internal Server Error. Please Contact Admin',
+                []
+            );
         }
     }
-
-
-
-
 
     public function success(Request $request)
     {
         DB::beginTransaction();
 
         try {
-            Log::info("Payment Success Callback: " . json_encode($request->all()));
-            $tran_id = $request->tran_id;
+            Log::info('Payment Success Callback: '.json_encode($request->all()));
 
-            // Verify payment authenticity with SSLCommerz
             $verifyURL = env('IS_SANDBOX')
-                ? "https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php"
-                : "https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php";
-
-
+                ? 'https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php'
+                : 'https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php';
 
             $verifyResponse = Http::get($verifyURL, [
                 'val_id' => $request->val_id,
                 'store_id' => env('STORE_ID'),
                 'store_passwd' => env('STORE_PASSWORD'),
                 'v' => 1,
-                'format' => 'json'
+                'format' => 'json',
             ]);
 
             $verifyData = $verifyResponse->json();
 
-
-            if ($verifyData['status'] === 'VALID' || $verifyData['status'] === 'VALIDATED') {
+            if (($verifyData['status'] ?? '') === 'VALID' || ($verifyData['status'] ?? '') === 'VALIDATED') {
                 $paymentChannel = $this->resolvePaymentChannel($verifyData);
                 $order = DB::table('orders')->where('id', $verifyData['value_a'])->first();
 
                 if (! $order) {
                     DB::rollBack();
+
                     return response()->json(['status' => 'failed', 'message' => 'Order not found']);
                 }
 
-                // Update order & transaction
                 DB::table('orders')->where('id', $verifyData['value_a'])->update([
                     'status' => 'processing',
                     'payment_status' => 'paid',
@@ -180,18 +240,17 @@ class OrderService
                     'updated_at' => now(),
                 ]);
 
-
                 DB::table('transactions')->where('order_id', $verifyData['value_a'])->update([
                     'status' => 'success',
-                    'bank_ssl_id' => $verifyData['bank_tran_id'],
-                    'tran_date' => $verifyData['tran_date'],
-                    'currency' => $verifyData['currency'],
-                    'store_amount' => $verifyData['store_amount'],
-                    'card_no' => $verifyData['card_no'],
-                    'risk_title' => $verifyData['risk_title'],
-                    'settlement_status' => $verifyData['settlement_status'],
-                    'bank_approval_id' => $verifyData['bank_approval_id'],
-                    'cus_phone' => $verifyData['cus_phone'],
+                    'bank_ssl_id' => $verifyData['bank_tran_id'] ?? null,
+                    'tran_date' => $verifyData['tran_date'] ?? null,
+                    'currency' => $verifyData['currency'] ?? null,
+                    'store_amount' => $verifyData['store_amount'] ?? null,
+                    'card_no' => $verifyData['card_no'] ?? null,
+                    'risk_title' => $verifyData['risk_title'] ?? null,
+                    'settlement_status' => $verifyData['settlement_status'] ?? null,
+                    'bank_approval_id' => $verifyData['bank_approval_id'] ?? null,
+                    'cus_phone' => $verifyData['cus_phone'] ?? null,
                     'discount_percentage' => $verifyData['discount_percentage'] ?? null,
                     'discount_remarks' => $verifyData['discount_remarks'] ?? null,
                     'payment_method' => $paymentChannel['type'],
@@ -203,9 +262,7 @@ class OrderService
                     'order_id' => $verifyData['value_a'],
                     'status' => 'pending',
                     'location' => $request->card_issuer_country_code ?? 'N/A',
-                    ]);
-
-                // order information update
+                ]);
 
                 DB::table('cart')->where('user_id', $order->user_id)->delete();
 
@@ -215,22 +272,24 @@ class OrderService
             }
 
             DB::rollBack();
+
             return response()->json(['status' => 'failed', 'message' => 'Payment validation failed']);
         } catch (Exception $ex) {
             DB::rollBack();
-            Log::error("PaymentService : paymentSuccess() => " . $ex->getMessage());
+            Log::error('PaymentService : paymentSuccess() => '.$ex->getMessage());
+
             return response()->json(['status' => 'failed', 'message' => $ex->getMessage()]);
         }
     }
 
     public function fail(Request $request)
     {
-        return $this->handlePaymentOutcome($request, 'failed', 'failed');
+        return $this->handlePaymentOutcome($request, 'cancelled', 'failed', 'unpaid');
     }
 
     public function cancel(Request $request)
     {
-        return $this->handlePaymentOutcome($request, 'cancelled', 'cancel');
+        return $this->handlePaymentOutcome($request, 'cancelled', 'cancel', 'unpaid');
     }
 
     private function recordCompanyAccountSettlement($order, Request $request, array $verifyData, array $paymentChannel): void
@@ -331,17 +390,18 @@ class OrderService
         return substr((string) $reference, 0, 20);
     }
 
-    private function handlePaymentOutcome(Request $request, string $paymentStatus, string $frontendStatus)
+    private function handlePaymentOutcome(Request $request, string $orderStatus, string $frontendStatus, string $paymentStatus)
     {
         DB::beginTransaction();
 
         try {
-            Log::info(sprintf('Payment %s Callback: %s', ucfirst($paymentStatus), json_encode($request->all())));
+            Log::info(sprintf('Payment %s Callback: %s', ucfirst($frontendStatus), json_encode($request->all())));
 
             $order = $this->resolveOrderFromCallback($request);
 
             if (! $order) {
                 DB::rollBack();
+
                 return response()->json([
                     'status' => 'failed',
                     'message' => 'Order not found',
@@ -349,18 +409,18 @@ class OrderService
             }
 
             DB::table('orders')->where('id', $order->id)->update([
-                'status' => $paymentStatus,
+                'status' => $orderStatus,
                 'payment_status' => $paymentStatus,
                 'updated_at' => now(),
             ]);
 
             DB::table('transactions')->where('order_id', $order->id)->update([
-                'status' => $paymentStatus,
+                'status' => 'failed',
             ]);
 
             DB::table('order_tracking')->insert([
                 'order_id' => $order->id,
-                'status' => $paymentStatus,
+                'status' => $orderStatus,
                 'location' => $request->card_issuer_country_code ?? 'N/A',
             ]);
 
@@ -369,7 +429,7 @@ class OrderService
             return redirect($this->buildFrontendPaymentUrl($frontendStatus, $request->tran_id));
         } catch (Exception $ex) {
             DB::rollBack();
-            Log::error(sprintf('PaymentService : payment%s() => %s', ucfirst($paymentStatus), $ex->getMessage()));
+            Log::error(sprintf('PaymentService : payment%s() => %s', ucfirst($frontendStatus), $ex->getMessage()));
 
             return response()->json([
                 'status' => 'failed',
@@ -395,13 +455,296 @@ class OrderService
 
     private function buildFrontendPaymentUrl(string $status, ?string $transactionId): string
     {
-        $baseUrl = rtrim((string) env('FRONTEND_URL'), '/');
+        $baseUrl = rtrim((string) env('FRONTEND_URL', 'http://localhost:5174'), '/');
         $query = http_build_query(array_filter([
             'tran_id' => $transactionId,
             'status' => $status,
         ]));
 
         return $baseUrl.'/payment/'.$status.($query !== '' ? '?'.$query : '');
+    }
+
+    private function prepareOrderCartData(array $paymentInformation): array
+    {
+        $products = array_map(function ($product) {
+            return [
+                'product_id' => (int) ($product['product_id'] ?? 0),
+                'quantity' => (int) ($product['quantity'] ?? 1),
+                'price' => (float) ($product['price'] ?? 0),
+            ];
+        }, $paymentInformation['products'] ?? []);
+
+        return [
+            'products' => $products,
+            'userInformation' => [
+                'name' => $paymentInformation['userInformation']['name'] ?? Auth::user()->name,
+                'address' => $paymentInformation['userInformation']['address'] ?? '',
+                'apartment' => $paymentInformation['userInformation']['apartment'] ?? '',
+                'city' => $paymentInformation['userInformation']['city'] ?? '',
+                'state' => $paymentInformation['userInformation']['state'] ?? '',
+                'zip' => $paymentInformation['userInformation']['zip'] ?? '',
+                'phone' => $paymentInformation['userInformation']['phone'] ?? '',
+                'country' => $paymentInformation['userInformation']['country'] ?? 'Bangladesh',
+                'deliveryTime' => $paymentInformation['userInformation']['deliveryTime'] ?? '',
+                'shipmentType' => $paymentInformation['userInformation']['shipmentType'] ?? '',
+                'addressType' => $paymentInformation['userInformation']['addressType'] ?? '',
+                'email' => $paymentInformation['userInformation']['email'] ?? Auth::user()->email,
+            ],
+        ];
+    }
+
+    private function transformOrderSummary($order): array
+    {
+        $cartData = $this->parseOrderCartData($order->cart_data);
+        $products = $this->extractProductsFromCartData($cartData);
+
+        return [
+            'id' => (int) $order->id,
+            'order_number' => '#'.$order->id,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'tran_id' => $order->tran_id,
+            'order_date' => $order->created_at,
+            'item_count' => (int) ($order->item_count ?? $this->sumProductQuantity($products)),
+            'delivery_method' => $this->resolveDeliveryMethod($cartData),
+            'amount_payable' => (float) $order->total_amount,
+            'can_order_again' => count($products) > 0,
+        ];
+    }
+
+    private function transformOrderDetails($order): array
+    {
+        $cartData = $this->parseOrderCartData($order->cart_data);
+        $products = $this->extractProductsFromCartData($cartData);
+        $customer = DB::table('users')
+            ->where('id', $order->user_id)
+            ->select('name', 'email', 'phone', 'address1', 'address2', 'city', 'state', 'postcode', 'country')
+            ->first();
+
+        $trackingEntries = DB::table('order_tracking')
+            ->where('order_id', $order->id)
+            ->orderBy('updated_at')
+            ->get();
+
+        $transaction = DB::table('transactions')
+            ->where('order_id', $order->id)
+            ->latest('id')
+            ->first();
+
+        $items = DB::table('order_items')
+            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
+            ->leftJoin('subcategories', 'products.subcategory_id', '=', 'subcategories.id')
+            ->leftJoin('product_images', function ($join) {
+                $join->on('products.id', '=', 'product_images.product_id')
+                    ->where('product_images.is_primary', 1);
+            })
+            ->where('order_items.order_id', $order->id)
+            ->select(
+                'order_items.id',
+                'order_items.product_id',
+                'order_items.quantity',
+                'order_items.price as order_price',
+                'products.name as product_name',
+                'products.price as current_price',
+                'products.description',
+                'subcategories.name as category_name',
+                'product_images.image_url'
+            )
+            ->get()
+            ->map(function ($item) use ($order) {
+                $currentPrice = (float) ($item->current_price ?? $item->order_price ?? 0);
+                $orderPrice = (float) ($item->order_price ?? 0);
+
+                return [
+                    'id' => (int) $item->id,
+                    'product_id' => (int) $item->product_id,
+                    'name' => $item->product_name ?: 'Product',
+                    'category' => $item->category_name ?: 'Store item',
+                    'description' => $item->description ?: '',
+                    'quantity' => (int) ($item->quantity ?? 0),
+                    'price' => $orderPrice,
+                    'current_price' => $currentPrice,
+                    'compare_price' => $currentPrice > $orderPrice ? $currentPrice : null,
+                    'image_url' => $item->image_url,
+                    'status' => $order->status,
+                ];
+            })
+            ->values();
+
+        return [
+            'id' => (int) $order->id,
+            'order_number' => '#'.$order->id,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'tran_id' => $order->tran_id,
+            'order_date' => $order->created_at,
+            'updated_at' => $order->updated_at,
+            'amount_payable' => (float) $order->total_amount,
+            'delivery_method' => $this->resolveDeliveryMethod($cartData),
+            'item_count' => $items->sum('quantity'),
+            'shipping_address' => $this->buildShippingAddress($cartData, $customer),
+            'items' => $items,
+            'timeline' => $this->buildOrderTimeline($order, $trackingEntries, $transaction),
+        ];
+    }
+
+    private function parseOrderCartData($rawCartData): array
+    {
+        if (empty($rawCartData)) {
+            return ['products' => [], 'userInformation' => []];
+        }
+
+        $decoded = json_decode($rawCartData, true);
+
+        if (! is_array($decoded)) {
+            return ['products' => [], 'userInformation' => []];
+        }
+
+        if (isset($decoded['products']) || isset($decoded['userInformation'])) {
+            return [
+                'products' => is_array($decoded['products'] ?? null) ? $decoded['products'] : [],
+                'userInformation' => is_array($decoded['userInformation'] ?? null) ? $decoded['userInformation'] : [],
+            ];
+        }
+
+        return [
+            'products' => array_values(array_filter($decoded, function ($item) {
+                return is_array($item);
+            })),
+            'userInformation' => [],
+        ];
+    }
+
+    private function extractProductsFromCartData(array $cartData): array
+    {
+        return is_array($cartData['products'] ?? null) ? $cartData['products'] : [];
+    }
+
+    private function sumProductQuantity(array $products): int
+    {
+        return array_reduce($products, function ($carry, $item) {
+            return $carry + (int) ($item['quantity'] ?? 0);
+        }, 0);
+    }
+
+    private function resolveDeliveryMethod(array $cartData): string
+    {
+        $shipmentType = strtolower((string) ($cartData['userInformation']['shipmentType'] ?? ''));
+
+        if ($shipmentType === 'free') {
+            return 'Free Delivery';
+        }
+
+        if ($shipmentType === 'flat') {
+            return 'Flat Rate Shipment';
+        }
+
+        return 'Standard Delivery';
+    }
+
+    private function buildShippingAddress(array $cartData, $customer): array
+    {
+        $userInformation = $cartData['userInformation'] ?? [];
+        $fullName = trim((string) ($userInformation['name'] ?? $customer->name ?? ''));
+        $addressParts = array_filter([
+            $userInformation['address'] ?? $customer->address1 ?? '',
+            $userInformation['apartment'] ?? $customer->address2 ?? '',
+            $userInformation['city'] ?? $customer->city ?? '',
+            $userInformation['state'] ?? $customer->state ?? '',
+            $userInformation['zip'] ?? $customer->postcode ?? '',
+            $userInformation['country'] ?? $customer->country ?? '',
+        ]);
+
+        return [
+            'name' => $fullName,
+            'phone' => $userInformation['phone'] ?? $customer->phone ?? '',
+            'email' => $userInformation['email'] ?? $customer->email ?? '',
+            'address' => implode(', ', $addressParts),
+            'address_type' => $userInformation['addressType'] ?? '',
+            'delivery_time' => $userInformation['deliveryTime'] ?? '',
+            'city' => $userInformation['city'] ?? $customer->city ?? '',
+            'state' => $userInformation['state'] ?? $customer->state ?? '',
+            'zip' => $userInformation['zip'] ?? $customer->postcode ?? '',
+            'country' => $userInformation['country'] ?? $customer->country ?? '',
+        ];
+    }
+
+    private function buildOrderTimeline($order, $trackingEntries, $transaction): array
+    {
+        $trackingByStatus = $trackingEntries->groupBy('status');
+        $paymentDate = $transaction->tran_date ?? $transaction->created_at ?? null;
+        $processingDate = optional($trackingByStatus->get('processing'))->last()->updated_at ?? null;
+        $shippedDate = optional($trackingByStatus->get('shipped'))->last()->updated_at ?? null;
+        $deliveredDate = optional($trackingByStatus->get('delivered'))->last()->updated_at ?? null;
+        $cancelledDate = optional($trackingByStatus->get('cancelled'))->last()->updated_at ?? null;
+
+        $isPaid = $order->payment_status === 'paid';
+        $status = $order->status;
+
+        $steps = [
+            [
+                'key' => 'order_placed',
+                'title' => 'Order Placed',
+                'description' => 'Your order has been received successfully and is waiting for the next step.',
+                'date' => $order->created_at,
+                'state' => 'completed',
+            ],
+            [
+                'key' => 'payment',
+                'title' => 'Payment',
+                'description' => $isPaid
+                    ? 'Your payment was verified successfully and the order is now moving forward.'
+                    : 'Your payment is still pending confirmation.',
+                'date' => $isPaid ? $paymentDate : null,
+                'state' => $isPaid ? 'completed' : ($status === 'cancelled' ? 'upcoming' : 'current'),
+            ],
+            [
+                'key' => 'processing',
+                'title' => 'Processing',
+                'description' => 'We are reviewing the order and getting the requested items ready.',
+                'date' => in_array($status, ['processing', 'shipped', 'delivered'], true) ? ($processingDate ?: $order->updated_at) : null,
+                'state' => in_array($status, ['shipped', 'delivered'], true)
+                    ? 'completed'
+                    : ($status === 'processing' ? 'current' : 'upcoming'),
+            ],
+            [
+                'key' => 'packing',
+                'title' => 'Packing',
+                'description' => 'The products are being packed carefully for shipment.',
+                'date' => in_array($status, ['shipped', 'delivered'], true) ? ($shippedDate ?: $order->updated_at) : null,
+                'state' => $status === 'delivered'
+                    ? 'completed'
+                    : ($status === 'shipped' ? 'current' : 'upcoming'),
+            ],
+            [
+                'key' => 'delivering',
+                'title' => 'Delivering',
+                'description' => 'Your order is on the way to your shipping address.',
+                'date' => in_array($status, ['shipped', 'delivered'], true) ? ($shippedDate ?: $order->updated_at) : null,
+                'state' => $status === 'delivered'
+                    ? 'completed'
+                    : ($status === 'shipped' ? 'current' : 'upcoming'),
+            ],
+            [
+                'key' => 'delivered',
+                'title' => 'Delivered',
+                'description' => 'The order has been delivered successfully.',
+                'date' => $status === 'delivered' ? ($deliveredDate ?: $order->updated_at) : null,
+                'state' => $status === 'delivered' ? 'completed' : 'upcoming',
+            ],
+        ];
+
+        if ($status === 'cancelled') {
+            $steps[] = [
+                'key' => 'cancelled',
+                'title' => 'Cancelled',
+                'description' => 'This order was cancelled before completion.',
+                'date' => $cancelledDate ?: $order->updated_at,
+                'state' => 'current',
+            ];
+        }
+
+        return $steps;
     }
 
     private function resolveSettledAmount($order, array $verifyData): float

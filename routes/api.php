@@ -34,6 +34,8 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {
     Route::get('users/mycart', [CartController::class, 'getMyCart']);
     Route::get('users/applycoupon/{id}', [CartController::class, 'applyCoupon']);
     Route::post('users/order', [OrderController::class, 'order']);
+    Route::get('users/orders', [OrderController::class, 'getMyOrders']);
+    Route::get('users/orders/{id}', [OrderController::class, 'getOrderDetails']);
 });
 
 Route::post('/users/order/success', [OrderController::class, 'success'])->name('payment.success');
