@@ -18,6 +18,28 @@ class OrderController extends Controller
     }
     public function order(Request $request)
     {
+        $request->validate([
+            'payment_method' => 'required|string',
+            'totalAmount' => 'required|numeric|min:0',
+            'products' => 'required|array|min:1',
+            'products.*.product_id' => 'required|numeric',
+            'products.*.quantity' => 'required|numeric|min:1',
+            'products.*.price' => 'required|numeric|min:0',
+            'address_id' => 'nullable|numeric',
+            'save_address' => 'nullable|boolean',
+            'is_primary_address' => 'nullable|boolean',
+            'userInformation' => 'required|array',
+            'userInformation.name' => 'required|string|max:255',
+            'userInformation.address' => 'required_without:address_id|string|max:255',
+            'userInformation.apartment' => 'nullable|string|max:255',
+            'userInformation.city' => 'required_without:address_id|string|max:100',
+            'userInformation.state' => 'required_without:address_id|string|max:100',
+            'userInformation.zip' => 'required_without:address_id|string|max:20',
+            'userInformation.phone' => 'required_without:address_id|string|max:20',
+            'userInformation.country' => 'required_without:address_id|string|max:50',
+            'userInformation.email' => 'nullable|email|max:255',
+        ]);
+
         try {
             $response = $this->orderService->order($request->all());
             return response()->json($response);

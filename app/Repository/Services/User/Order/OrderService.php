@@ -6,6 +6,7 @@ use App\Constants\ResponseConstants;
 use App\Repository\Services\Common\CommonService;
 use DB;
 use Exception;
+use InvalidArgumentException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -31,6 +32,12 @@ class OrderService
             }
 
             return ['status' => 'failed', 'message' => 'Invalid payment method'];
+        } catch (InvalidArgumentException $ex) {
+            return [
+                'status' => ResponseConstants::FAILED,
+                'message' => $ex->getMessage(),
+                'data' => [],
+            ];
         } catch (Exception $ex) {
             Log::error('OrderService : order function error: '.$ex->getMessage());
 
@@ -113,11 +120,12 @@ class OrderService
 
         try {
             $tran_id = uniqid('SSL_');
-            $preparedCartData = $this->prepareOrderCartData($paymentInformation);
+            $selectedAddress = $this->resolveCheckoutAddress($paymentInformation);
+            $preparedCartData = $this->prepareOrderCartData($paymentInformation, $selectedAddress);
 
             $orderId = DB::table('orders')->insertGetId([
                 'user_id' => Auth::id(),
-                'address_id' => null,
+                'address_id' => $selectedAddress['id'] ?? null,
                 'total_amount' => $paymentInformation['totalAmount'],
                 'status' => 'pending',
                 'payment_status' => 'unpaid',
@@ -464,7 +472,7 @@ class OrderService
         return $baseUrl.'/payment/'.$status.($query !== '' ? '?'.$query : '');
     }
 
-    private function prepareOrderCartData(array $paymentInformation): array
+    private function prepareOrderCartData(array $paymentInformation, ?array $selectedAddress = null): array
     {
         $products = array_map(function ($product) {
             return [
@@ -474,22 +482,35 @@ class OrderService
             ];
         }, $paymentInformation['products'] ?? []);
 
+        $userInformation = [
+            'name' => $paymentInformation['userInformation']['name'] ?? Auth::user()->name,
+            'address' => $paymentInformation['userInformation']['address'] ?? '',
+            'apartment' => $paymentInformation['userInformation']['apartment'] ?? '',
+            'city' => $paymentInformation['userInformation']['city'] ?? '',
+            'state' => $paymentInformation['userInformation']['state'] ?? '',
+            'zip' => $paymentInformation['userInformation']['zip'] ?? '',
+            'phone' => $paymentInformation['userInformation']['phone'] ?? '',
+            'country' => $paymentInformation['userInformation']['country'] ?? 'Bangladesh',
+            'deliveryTime' => $paymentInformation['userInformation']['deliveryTime'] ?? '',
+            'shipmentType' => $paymentInformation['userInformation']['shipmentType'] ?? '',
+            'addressType' => $paymentInformation['userInformation']['addressType'] ?? '',
+            'email' => $paymentInformation['userInformation']['email'] ?? Auth::user()->email,
+        ];
+
+        if ($selectedAddress) {
+            $userInformation['address'] = $selectedAddress['address_line1'] ?? $userInformation['address'];
+            $userInformation['apartment'] = $selectedAddress['address_line2'] ?? $userInformation['apartment'];
+            $userInformation['city'] = $selectedAddress['city'] ?? $userInformation['city'];
+            $userInformation['state'] = $selectedAddress['state'] ?? $userInformation['state'];
+            $userInformation['zip'] = $selectedAddress['postal_code'] ?? $userInformation['zip'];
+            $userInformation['phone'] = $selectedAddress['phone'] ?? $userInformation['phone'];
+            $userInformation['country'] = $selectedAddress['country'] ?? $userInformation['country'];
+            $userInformation['savedAddressId'] = $selectedAddress['id'] ?? null;
+        }
+
         return [
             'products' => $products,
-            'userInformation' => [
-                'name' => $paymentInformation['userInformation']['name'] ?? Auth::user()->name,
-                'address' => $paymentInformation['userInformation']['address'] ?? '',
-                'apartment' => $paymentInformation['userInformation']['apartment'] ?? '',
-                'city' => $paymentInformation['userInformation']['city'] ?? '',
-                'state' => $paymentInformation['userInformation']['state'] ?? '',
-                'zip' => $paymentInformation['userInformation']['zip'] ?? '',
-                'phone' => $paymentInformation['userInformation']['phone'] ?? '',
-                'country' => $paymentInformation['userInformation']['country'] ?? 'Bangladesh',
-                'deliveryTime' => $paymentInformation['userInformation']['deliveryTime'] ?? '',
-                'shipmentType' => $paymentInformation['userInformation']['shipmentType'] ?? '',
-                'addressType' => $paymentInformation['userInformation']['addressType'] ?? '',
-                'email' => $paymentInformation['userInformation']['email'] ?? Auth::user()->email,
-            ],
+            'userInformation' => $userInformation,
         ];
     }
 
@@ -582,7 +603,7 @@ class OrderService
             'amount_payable' => (float) $order->total_amount,
             'delivery_method' => $this->resolveDeliveryMethod($cartData),
             'item_count' => $items->sum('quantity'),
-            'shipping_address' => $this->buildShippingAddress($cartData, $customer),
+            'shipping_address' => $this->buildShippingAddress($cartData, $customer, $order->address_id ?? null),
             'items' => $items,
             'timeline' => $this->buildOrderTimeline($order, $trackingEntries, $transaction),
         ];
@@ -642,31 +663,134 @@ class OrderService
         return 'Standard Delivery';
     }
 
-    private function buildShippingAddress(array $cartData, $customer): array
+    private function buildShippingAddress(array $cartData, $customer, ?int $addressId = null): array
     {
         $userInformation = $cartData['userInformation'] ?? [];
+        $storedAddress = $this->resolveStoredAddressById($addressId);
+        $storedAddressArray = $storedAddress ? $this->transformStoredAddressRecord($storedAddress) : null;
         $fullName = trim((string) ($userInformation['name'] ?? $customer->name ?? ''));
         $addressParts = array_filter([
-            $userInformation['address'] ?? $customer->address1 ?? '',
-            $userInformation['apartment'] ?? $customer->address2 ?? '',
-            $userInformation['city'] ?? $customer->city ?? '',
-            $userInformation['state'] ?? $customer->state ?? '',
-            $userInformation['zip'] ?? $customer->postcode ?? '',
-            $userInformation['country'] ?? $customer->country ?? '',
+            $userInformation['address'] ?? ($storedAddressArray['address_line1'] ?? $customer->address1 ?? ''),
+            $userInformation['apartment'] ?? ($storedAddressArray['address_line2'] ?? $customer->address2 ?? ''),
+            $userInformation['city'] ?? ($storedAddressArray['city'] ?? $customer->city ?? ''),
+            $userInformation['state'] ?? ($storedAddressArray['state'] ?? $customer->state ?? ''),
+            $userInformation['zip'] ?? ($storedAddressArray['postal_code'] ?? $customer->postcode ?? ''),
+            $userInformation['country'] ?? ($storedAddressArray['country'] ?? $customer->country ?? ''),
         ]);
 
         return [
             'name' => $fullName,
-            'phone' => $userInformation['phone'] ?? $customer->phone ?? '',
+            'phone' => $userInformation['phone'] ?? ($storedAddressArray['phone'] ?? $customer->phone ?? ''),
             'email' => $userInformation['email'] ?? $customer->email ?? '',
             'address' => implode(', ', $addressParts),
             'address_type' => $userInformation['addressType'] ?? '',
             'delivery_time' => $userInformation['deliveryTime'] ?? '',
-            'city' => $userInformation['city'] ?? $customer->city ?? '',
-            'state' => $userInformation['state'] ?? $customer->state ?? '',
-            'zip' => $userInformation['zip'] ?? $customer->postcode ?? '',
-            'country' => $userInformation['country'] ?? $customer->country ?? '',
+            'city' => $userInformation['city'] ?? ($storedAddressArray['city'] ?? $customer->city ?? ''),
+            'state' => $userInformation['state'] ?? ($storedAddressArray['state'] ?? $customer->state ?? ''),
+            'zip' => $userInformation['zip'] ?? ($storedAddressArray['postal_code'] ?? $customer->postcode ?? ''),
+            'country' => $userInformation['country'] ?? ($storedAddressArray['country'] ?? $customer->country ?? ''),
+            'saved_address_id' => $storedAddressArray['id'] ?? ($userInformation['savedAddressId'] ?? null),
         ];
+    }
+
+    private function resolveCheckoutAddress(array $paymentInformation): ?array
+    {
+        $addressId = isset($paymentInformation['address_id']) ? (int) $paymentInformation['address_id'] : 0;
+
+        if ($addressId > 0) {
+            $address = DB::table('user_addresses')
+                ->where('id', $addressId)
+                ->where('user_id', Auth::id())
+                ->first();
+
+            if (! $address) {
+                throw new InvalidArgumentException('Selected shipping address could not be found.');
+            }
+
+            return $this->transformStoredAddressRecord($address);
+        }
+
+        if ((bool) ($paymentInformation['save_address'] ?? false)) {
+            return $this->storeUserAddressFromCheckout(
+                $paymentInformation['userInformation'] ?? [],
+                (bool) ($paymentInformation['is_primary_address'] ?? false)
+            );
+        }
+
+        return null;
+    }
+
+    private function storeUserAddressFromCheckout(array $userInformation, bool $isPrimaryRequested): array
+    {
+        $addressLine1 = trim((string) ($userInformation['address'] ?? ''));
+
+        if ($addressLine1 === '') {
+            throw new InvalidArgumentException('Shipping address is required to save a new address.');
+        }
+
+        $hasExistingAddresses = DB::table('user_addresses')
+            ->where('user_id', Auth::id())
+            ->exists();
+
+        $isPrimary = $isPrimaryRequested || ! $hasExistingAddresses;
+
+        if ($isPrimary) {
+            DB::table('user_addresses')
+                ->where('user_id', Auth::id())
+                ->update([
+                    'is_primary' => 0,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        $addressId = DB::table('user_addresses')->insertGetId([
+            'user_id' => Auth::id(),
+            'address_line1' => $addressLine1,
+            'address_line2' => $this->nullableTrim($userInformation['apartment'] ?? null),
+            'city' => $this->nullableTrim($userInformation['city'] ?? null),
+            'state' => $this->nullableTrim($userInformation['state'] ?? null),
+            'postal_code' => $this->nullableTrim($userInformation['zip'] ?? null),
+            'country' => $this->nullableTrim($userInformation['country'] ?? null),
+            'phone' => $this->nullableTrim($userInformation['phone'] ?? null),
+            'is_primary' => $isPrimary ? 1 : 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $address = DB::table('user_addresses')->where('id', $addressId)->first();
+
+        return $this->transformStoredAddressRecord($address);
+    }
+
+    private function resolveStoredAddressById(?int $addressId)
+    {
+        if (empty($addressId)) {
+            return null;
+        }
+
+        return DB::table('user_addresses')->where('id', $addressId)->first();
+    }
+
+    private function transformStoredAddressRecord($address): array
+    {
+        return [
+            'id' => (int) $address->id,
+            'address_line1' => $address->address_line1 ?? '',
+            'address_line2' => $address->address_line2 ?? '',
+            'city' => $address->city ?? '',
+            'state' => $address->state ?? '',
+            'postal_code' => $address->postal_code ?? '',
+            'country' => $address->country ?? '',
+            'phone' => $address->phone ?? '',
+            'is_primary' => (bool) ($address->is_primary ?? false),
+        ];
+    }
+
+    private function nullableTrim($value)
+    {
+        $normalized = trim((string) ($value ?? ''));
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     private function buildOrderTimeline($order, $trackingEntries, $transaction): array

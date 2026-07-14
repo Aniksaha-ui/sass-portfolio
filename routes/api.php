@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\User\Blog\UserBlogController;
+use App\Http\Controllers\User\Address\AddressController;
 use App\Http\Controllers\User\Cart\CartController;
 use App\Http\Controllers\User\Order\OrderController;
 use App\Http\Controllers\User\Products\ProductController;
@@ -33,6 +34,8 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {
     Route::delete('users/remove/cart/{id}', [CartController::class, 'removeCartItem']);
     Route::get('users/mycart', [CartController::class, 'getMyCart']);
     Route::get('users/applycoupon/{id}', [CartController::class, 'applyCoupon']);
+    Route::get('users/addresses', [AddressController::class, 'index']);
+    Route::post('users/addresses', [AddressController::class, 'store']);
     Route::post('users/order', [OrderController::class, 'order']);
     Route::get('users/orders', [OrderController::class, 'getMyOrders']);
     Route::get('users/orders/{id}', [OrderController::class, 'getOrderDetails']);
