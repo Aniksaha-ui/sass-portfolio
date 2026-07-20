@@ -116,12 +116,39 @@ class UsersService
                 ];
             }
 
+            $allowedFields = ['name', 'email', 'role', 'password', 'image'];
+            $data = array_intersect_key($data, array_flip($allowedFields));
+
             if (request()->hasFile('image')) {
                 $documentLink = FileManageHelper::uploadFile('users', $data['image']);
                 $data['image'] = $documentLink;
-            } else {
-                $request['image'] = 'images/trips/default.png';
             }
+
+            if (empty($data['password'])) {
+                unset($data['password']);
+            } else {
+                $data['password'] = bcrypt($data['password']);
+            }
+
+            if (isset($data['email']) && DB::table('users')
+                ->where('email', $data['email'])
+                ->where('id', '!=', $id)
+                ->exists()) {
+                return [
+                    "status" => false,
+                    "message" => "This email address is already in use",
+                    "data" => []
+                ];
+            }
+
+            if (empty($data)) {
+                return [
+                    "status" => true,
+                    "message" => "No changes to save",
+                    "data" => []
+                ];
+            }
+
             $user = DB::table('users')->where('id', $id)->update($data);
             if ($user) {
                 return [
