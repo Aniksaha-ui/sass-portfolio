@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Category\CategoryController;
+use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
@@ -22,6 +23,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/categories/{id}', [CategoryController::class, 'show']);
     Route::match(['put', 'patch', 'post'], 'admin/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('admin/categories/{id}', [CategoryController::class, 'destroy']);
+
+    Route::get('admin/products/options', [AdminProductController::class, 'options']);
+    Route::get('admin/products', [AdminProductController::class, 'index']);
+    Route::post('admin/products', [AdminProductController::class, 'store']);
+    Route::get('admin/products/{id}', [AdminProductController::class, 'show']);
+    Route::match(['put', 'patch', 'post'], 'admin/products/{id}', [AdminProductController::class, 'update']);
+    Route::delete('admin/products/{id}', [AdminProductController::class, 'destroy']);
 
     Route::post('admin/users', [UserController::class, 'addNewUser']);
     Route::get('admin/users', [UserController::class, 'getAllUsers']);
