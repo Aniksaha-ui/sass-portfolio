@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\Blog\BlogController;
+use App\Http\Controllers\Admin\Category\CategoryController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
@@ -16,6 +17,12 @@ Route::post('/login', [AuthController::class, 'login']);
 
 /** protected routes for admin **/
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+    Route::get('admin/categories', [CategoryController::class, 'index']);
+    Route::post('admin/categories', [CategoryController::class, 'store']);
+    Route::get('admin/categories/{id}', [CategoryController::class, 'show']);
+    Route::match(['put', 'patch', 'post'], 'admin/categories/{id}', [CategoryController::class, 'update']);
+    Route::delete('admin/categories/{id}', [CategoryController::class, 'destroy']);
+
     Route::post('admin/users', [UserController::class, 'addNewUser']);
     Route::get('admin/users', [UserController::class, 'getAllUsers']);
     Route::get('admin/users/{id}', [UserController::class, 'getUserById']);
