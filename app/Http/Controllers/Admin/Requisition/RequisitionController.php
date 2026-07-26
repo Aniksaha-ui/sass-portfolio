@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Http\Controllers\Admin\Requisition;
+
+use App\Http\Controllers\Controller;
+use App\Repository\Services\Admin\Requisition\RequisitionService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class RequisitionController extends Controller
+{
+    public function __construct(private RequisitionService $service) {}
+    public function options() { return $this->respond(true, 'Products fetched successfully', $this->service->options()); }
+    public function index(Request $request) { return $this->respond(true, 'Requisitions fetched successfully', $this->service->requisitions($this->perPage($request), $this->page($request), $request->query('search', ''))); }
+    public function store(Request $request) { $data = $this->validateRequisition($request); return $data instanceof \Illuminate\Http\JsonResponse ? $data : $this->respond(true, 'Requisition created successfully', $this->service->create($data), 201); }
+    public function accept($id, Request $request) { $record = $this->service->accept($id, $request->user()?->id); return $record ? $this->respond(true, 'Requisition accepted and procurement created.', $record) : $this->respond(false, 'Only a pending requisition can be accepted.', [], 422); }
+    public function procurements(Request $request) { return $this->respond(true, 'Procurements fetched successfully', $this->service->procurements($this->perPage($request), $this->page($request), $request->query('search', ''))); }
+    public function receive($id, Request $request) { $validator = Validator::make($request->all(), ['warehouse_location' => 'required|string|max:100', 'items' => 'required|array|min:1', 'items.*.requisition_product_id' => 'required|integer', 'items.*.quantity_received' => 'required|integer|min:1']); if ($validator->fails()) return $this->respond(false, 'Validation error', $validator->errors(), 422); try { $data = $validator->validated(); $record = $this->service->receive($id, $data['items'], $data['warehouse_location'], $request->user()?->id); return $record ? $this->respond(true, 'Stock updated successfully.', $record) : $this->respond(false, 'Procurement is not available for receiving.', [], 422); } catch (\InvalidArgumentException $e) { return $this->respond(false, $e->getMessage(), [], 422); } }
+    public function markOnHand($id, Request $request) { $validator = Validator::make($request->all(), ['warehouse_location' => 'required|string|max:100']); if ($validator->fails()) return $this->respond(false, 'Validation error', $validator->errors(), 422); $record = $this->service->markOnHand($id, $validator->validated()['warehouse_location'], $request->user()?->id); return $record ? $this->respond(true, 'Procurement is on hand and inventory has been updated.', $record) : $this->respond(false, 'Procurement is not available to mark on hand.', [], 422); }
+    public function stocks(Request $request) { return $this->respond(true, 'Stock receipts fetched successfully', $this->service->stocks($this->perPage($request), $this->page($request), $request->query('search', ''))); }
+    private function validateRequisition(Request $request) { $validator = Validator::make($request->all(), ['requested_by' => 'required|string|max:255', 'department' => 'nullable|string|max:100', 'priority' => 'nullable|in:low,normal,high,urgent', 'required_by' => 'nullable|date', 'supplier_name' => 'nullable|string|max:255', 'reference_no' => 'nullable|string|max:100', 'notes' => 'nullable|string', 'items' => 'required|array|min:1', 'items.*.product_id' => 'required|integer|distinct|exists:products,id', 'items.*.quantity' => 'required|integer|min:1', 'items.*.unit_cost' => 'nullable|numeric|min:0']); return $validator->fails() ? $this->respond(false, 'Validation error', $validator->errors(), 422) : $validator->validated(); }
+    private function perPage(Request $request) { return min(max((int) $request->query('perPage', 10), 1), 100); }
+    private function page(Request $request) { return max((int) $request->query('page', 1), 1); }
+    private function respond($status, $message, $data, $code = 200) { return response()->json(['isExecuted' => $status, 'message' => $message, 'data' => $data], $code); }
+}

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Category\CategoryController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\Requisition\RequisitionController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
@@ -30,6 +31,15 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/products/{id}', [AdminProductController::class, 'show']);
     Route::match(['put', 'patch', 'post'], 'admin/products/{id}', [AdminProductController::class, 'update']);
     Route::delete('admin/products/{id}', [AdminProductController::class, 'destroy']);
+
+    Route::get('admin/requisitions/options', [RequisitionController::class, 'options']);
+    Route::get('admin/requisitions', [RequisitionController::class, 'index']);
+    Route::post('admin/requisitions', [RequisitionController::class, 'store']);
+    Route::post('admin/requisitions/{id}/accept', [RequisitionController::class, 'accept']);
+    Route::get('admin/procurements', [RequisitionController::class, 'procurements']);
+    Route::post('admin/procurements/{id}/receive', [RequisitionController::class, 'receive']);
+    Route::post('admin/procurements/{id}/on-hand', [RequisitionController::class, 'markOnHand']);
+    Route::get('admin/stocks', [RequisitionController::class, 'stocks']);
 
     Route::post('admin/users', [UserController::class, 'addNewUser']);
     Route::get('admin/users', [UserController::class, 'getAllUsers']);
