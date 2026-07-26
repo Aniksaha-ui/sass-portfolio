@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Category\CategoryController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\Order\AdminOrderController;
 use App\Http\Controllers\Admin\Requisition\RequisitionController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
@@ -31,6 +32,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/products/{id}', [AdminProductController::class, 'show']);
     Route::match(['put', 'patch', 'post'], 'admin/products/{id}', [AdminProductController::class, 'update']);
     Route::delete('admin/products/{id}', [AdminProductController::class, 'destroy']);
+
+    Route::get('admin/orders', [AdminOrderController::class, 'index']);
+    Route::get('admin/orders/{id}', [AdminOrderController::class, 'show']);
+    Route::post('admin/orders/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
 
     Route::get('admin/requisitions/options', [RequisitionController::class, 'options']);
     Route::get('admin/requisitions', [RequisitionController::class, 'index']);
