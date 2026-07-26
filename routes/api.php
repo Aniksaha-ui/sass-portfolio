@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Category\CategoryController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\Order\AdminOrderController;
+use App\Http\Controllers\Admin\Finance\FinanceController;
 use App\Http\Controllers\Admin\Requisition\RequisitionController;
 use App\Http\Controllers\Admin\Projects\ProjectController;
 use App\Http\Controllers\Admin\Users\UserController;
@@ -36,6 +37,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/orders', [AdminOrderController::class, 'index']);
     Route::get('admin/orders/{id}', [AdminOrderController::class, 'show']);
     Route::post('admin/orders/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
+
+    Route::get('admin/transactions', [FinanceController::class, 'transactions']);
+    Route::get('admin/company-accounts', [FinanceController::class, 'accounts']);
+    Route::get('admin/account-history', [FinanceController::class, 'history']);
+    Route::get('admin/company-accounts/summary', [FinanceController::class, 'summary']);
 
     Route::get('admin/requisitions/options', [RequisitionController::class, 'options']);
     Route::get('admin/requisitions', [RequisitionController::class, 'index']);
