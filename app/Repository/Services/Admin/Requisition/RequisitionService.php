@@ -3,14 +3,22 @@
 namespace App\Repository\Services\Admin\Requisition;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class RequisitionService
 {
-    public function options() { return ['products' => DB::table('products')->orderBy('name')->get(['id', 'name', 'sku']), 'warehouses' => DB::table('inventory')->whereNotNull('warehouse_location')->where('warehouse_location', '!=', '')->distinct()->orderBy('warehouse_location')->pluck('warehouse_location')->values()]; }
+    public function options() {
+        $balanceColumn = Schema::hasColumn('company_accounts', 'amount') ? 'amount' : (Schema::hasColumn('company_accounts', 'balance') ? 'balance' : null);
+        $accounts = DB::table('company_accounts')->orderBy('account_name')->select(['id', 'account_name', 'account_number', 'type']);
+        $accounts->selectRaw($balanceColumn ? "{$balanceColumn} as balance" : '0 as balance');
+        return ['products' => DB::table('products')->orderBy('name')->get(['id', 'name', 'sku']), 'warehouses' => DB::table('inventory')->whereNotNull('warehouse_location')->where('warehouse_location', '!=', '')->distinct()->orderBy('warehouse_location')->pluck('warehouse_location')->values(), 'company_accounts' => $accounts->get()];
+    }
     public function requisitions($perPage, $page, $search) {
-        return DB::table('requisitions as r')->leftJoin('requisition_products as rp', 'rp.requisition_id', '=', 'r.id')
-            ->select('r.id', 'r.requisition_number', 'r.requested_by', 'r.status', 'r.created_at', DB::raw('count(rp.id) as items_count'), DB::raw('coalesce(sum(rp.quantity * rp.unit_cost), 0) as total_amount'))
-            ->where(fn ($q) => $q->where('r.requisition_number', 'like', "%{$search}%")->orWhere('r.requested_by', 'like', "%{$search}%"))->groupBy('r.id', 'r.requisition_number', 'r.requested_by', 'r.status', 'r.created_at')->orderByDesc('r.id')->paginate($perPage, ['*'], 'page', $page);
+        $rows = DB::table('requisitions as r')->leftJoin('requisition_products as rp', 'rp.requisition_id', '=', 'r.id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')
+            ->select('r.id', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.status', 'r.created_at', 'r.accepted_at', 'approver.name as approved_by_name', DB::raw('count(rp.id) as items_count'), DB::raw('coalesce(sum(rp.quantity * rp.unit_cost), 0) as total_amount'))
+            ->where(fn ($q) => $q->where('r.requisition_number', 'like', "%{$search}%")->orWhere('r.requested_by', 'like', "%{$search}%"))->groupBy('r.id', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.status', 'r.created_at', 'r.accepted_at', 'approver.name')->orderByDesc('r.id')->paginate($perPage, ['*'], 'page', $page);
+        foreach ($rows as $row) $row->items = $this->requisitionItems($row->id);
+        return $rows;
     }
     public function create(array $data) {
         return DB::transaction(function () use ($data) {
@@ -29,9 +37,9 @@ class RequisitionService
         });
     }
     public function procurements($perPage, $page, $search) {
-        $rows = DB::table('procurements as p')->join('requisitions as r', 'r.id', '=', 'p.requisition_id')->join('requisition_products as rp', 'rp.requisition_id', '=', 'r.id')
-            ->select('p.id', 'p.procurement_number', 'p.status', 'r.requisition_number', DB::raw('count(rp.id) as items_count'), DB::raw('coalesce(sum(rp.quantity * rp.unit_cost), 0) as total_amount'))
-            ->where(fn ($q) => $q->where('p.procurement_number', 'like', "%{$search}%")->orWhere('r.requisition_number', 'like', "%{$search}%"))->groupBy('p.id', 'p.procurement_number', 'p.status', 'r.requisition_number')->orderByDesc('p.id')->paginate($perPage, ['*'], 'page', $page);
+        $rows = DB::table('procurements as p')->join('requisitions as r', 'r.id', '=', 'p.requisition_id')->join('requisition_products as rp', 'rp.requisition_id', '=', 'r.id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')
+            ->select('p.id', 'p.procurement_number', 'p.status', 'p.paid_at', 'p.payment_amount', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.accepted_at', 'approver.name as approved_by_name', DB::raw('count(rp.id) as items_count'), DB::raw('coalesce(sum(rp.quantity * rp.unit_cost), 0) as total_amount'))
+            ->where(fn ($q) => $q->where('p.procurement_number', 'like', "%{$search}%")->orWhere('r.requisition_number', 'like', "%{$search}%"))->groupBy('p.id', 'p.procurement_number', 'p.status', 'p.paid_at', 'p.payment_amount', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.accepted_at', 'approver.name')->orderByDesc('p.id')->paginate($perPage, ['*'], 'page', $page);
         foreach ($rows as $row) $row->items = $this->procurementItems($row->id);
         return $rows;
     }
@@ -55,14 +63,33 @@ class RequisitionService
             return $this->procurement($id);
         });
     }
-    public function markOnHand($id, $warehouseLocation, $userId = null) {
-        $procurement = DB::table('procurements')->where('id', $id)->first();
-        if (!$procurement || $procurement->status === 'on_hand') return null;
-        $items = DB::table('requisition_products')->where('requisition_id', $procurement->requisition_id)->get(['id', 'quantity', 'quantity_received'])->map(fn ($item) => ['requisition_product_id' => $item->id, 'quantity_received' => $item->quantity - $item->quantity_received])->filter(fn ($item) => $item['quantity_received'] > 0)->values()->all();
-        return $items ? $this->receive($id, $items, $warehouseLocation, $userId) : null;
+    public function markOnHand($id, $warehouseLocation, array $payments, $userId = null, $ipAddress = null) {
+        return DB::transaction(function () use ($id, $warehouseLocation, $payments, $userId, $ipAddress) {
+            $procurement = DB::table('procurements')->where('id', $id)->lockForUpdate()->first();
+            if (!$procurement || $procurement->status === 'on_hand') return null;
+            $items = DB::table('requisition_products')->where('requisition_id', $procurement->requisition_id)->lockForUpdate()->get(['id', 'quantity', 'quantity_received', 'unit_cost']);
+            $outstanding = $items->filter(fn ($item) => $item->quantity > $item->quantity_received);
+            if ($outstanding->isEmpty()) return null;
+            $amount = round((float) $outstanding->sum(fn ($item) => ($item->quantity - $item->quantity_received) * $item->unit_cost), 2);
+            $paidAmount = round((float) collect($payments)->sum(fn ($payment) => (float) $payment['amount']), 2);
+            if (abs($paidAmount - $amount) > 0.009) throw new \InvalidArgumentException('Payment amounts must equal the procurement total of ' . number_format($amount, 2) . '.');
+            $accountIds = collect($payments)->pluck('company_account_id')->map(fn ($id) => (int) $id)->all();
+            $balanceColumn = Schema::hasColumn('company_accounts', 'amount') ? 'amount' : (Schema::hasColumn('company_accounts', 'balance') ? 'balance' : null);
+            if (!$balanceColumn) throw new \InvalidArgumentException('Company account balance column was not found.');
+            $accounts = DB::table('company_accounts')->whereIn('id', $accountIds)->orderBy('id')->select('*')->selectRaw("{$balanceColumn} as amount")->lockForUpdate()->get()->keyBy('id');
+            foreach ($payments as $payment) { $account = $accounts->get((int) $payment['company_account_id']); if (!$account) throw new \InvalidArgumentException('Selected company account was not found.'); if ((float) $account->amount < (float) $payment['amount']) throw new \InvalidArgumentException($account->account_name . ' does not have enough balance.'); }
+            $receiptItems = $outstanding->map(fn ($item) => ['requisition_product_id' => $item->id, 'quantity_received' => $item->quantity - $item->quantity_received])->values()->all();
+            $record = $this->receive($id, $receiptItems, $warehouseLocation, $userId);
+            if (!$record) return null;
+            $references = [];
+            foreach (array_values($payments) as $index => $payment) { $account = $accounts->get((int) $payment['company_account_id']); $paymentAmount = round((float) $payment['amount'], 2); $reference = 'PROC-' . $id . '-' . ($index + 1) . '-' . now()->format('His'); $references[] = $reference; DB::table('company_accounts')->where('id', $account->id)->decrement($balanceColumn, $paymentAmount, ['updated_at' => now()]); DB::table('account_history')->insert(['user_id' => $userId ?: 0, 'user_account_type' => $account->type, 'user_account_no' => $account->account_number, 'getaway' => 'hand_cash', 'amount' => $paymentAmount, 'com_account_no' => $account->account_number, 'transaction_reference' => $reference, 'transaction_type' => 'd', 'purpose' => 'procurement', 'tran_date' => now(), 'ip_address' => $ipAddress]); DB::table('procurement_payments')->insert(['procurement_id' => $id, 'company_account_id' => $account->id, 'amount' => $paymentAmount, 'payment_reference' => $reference, 'paid_at' => now(), 'created_at' => now(), 'updated_at' => now()]); }
+            DB::table('procurements')->where('id', $id)->update(['company_account_id' => count($payments) === 1 ? $accountIds[0] : null, 'payment_amount' => $amount, 'payment_reference' => implode(',', $references), 'paid_at' => now(), 'updated_at' => now()]);
+            return $this->procurement($id);
+        });
     }
     public function stocks($perPage, $page, $search) { return DB::table('stock_receipts as sr')->join('products as pr', 'pr.id', '=', 'sr.product_id')->join('procurements as p', 'p.id', '=', 'sr.procurement_id')->select('sr.*', 'pr.name as product_name', 'p.procurement_number')->where(fn ($q) => $q->where('pr.name', 'like', "%{$search}%")->orWhere('p.procurement_number', 'like', "%{$search}%"))->orderByDesc('sr.id')->paginate($perPage, ['*'], 'page', $page); }
-    private function requisition($id) { $record = DB::table('requisitions')->where('id', $id)->first(); if ($record) $record->items = DB::table('requisition_products as rp')->join('products as p', 'p.id', '=', 'rp.product_id')->where('rp.requisition_id', $id)->get(['rp.*', 'p.name as product_name']); return $record; }
+    private function requisition($id) { $record = DB::table('requisitions')->where('id', $id)->first(); if ($record) $record->items = $this->requisitionItems($id); return $record; }
     private function procurement($id) { $record = DB::table('procurements')->where('id', $id)->first(); if ($record) $record->items = $this->procurementItems($id); return $record; }
-    private function procurementItems($id) { return DB::table('procurements as p')->join('requisition_products as rp', 'rp.requisition_id', '=', 'p.requisition_id')->join('products as pr', 'pr.id', '=', 'rp.product_id')->where('p.id', $id)->get(['rp.id as requisition_product_id', 'rp.quantity', 'rp.quantity_received', 'pr.name as product_name']); }
+    private function procurementItems($id) { return DB::table('procurements as p')->join('requisition_products as rp', 'rp.requisition_id', '=', 'p.requisition_id')->join('products as pr', 'pr.id', '=', 'rp.product_id')->where('p.id', $id)->get(['rp.id as requisition_product_id', 'rp.product_id', 'rp.quantity', 'rp.quantity_received', 'rp.unit_cost', 'pr.name as product_name', 'pr.sku']); }
+    private function requisitionItems($id) { return DB::table('requisition_products as rp')->join('products as pr', 'pr.id', '=', 'rp.product_id')->where('rp.requisition_id', $id)->get(['rp.id as requisition_product_id', 'rp.product_id', 'rp.quantity', 'rp.quantity_received', 'rp.unit_cost', 'pr.name as product_name', 'pr.sku']); }
 }
