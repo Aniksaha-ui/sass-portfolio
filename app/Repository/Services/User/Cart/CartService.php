@@ -271,6 +271,15 @@ class CartService
                     ];
                 }
 
+                $today = now()->toDateString();
+                if (($coupon->start_date && $coupon->start_date > $today) || ($coupon->end_date && $coupon->end_date < $today)) {
+                    return [
+                        'status' => ResponseConstants::SUCCESS,
+                        'message' => 'Coupon is not currently valid',
+                        'data' => [],
+                    ];
+                }
+
                 if ($coupon->discount_value > $totalAmount) {
                     return [
                         'status' => ResponseConstants::SUCCESS,

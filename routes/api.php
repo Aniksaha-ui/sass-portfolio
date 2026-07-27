@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Category\CategoryController;
+use App\Http\Controllers\Admin\Coupon\CouponController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\Product\ProductDiscountController;
 use App\Http\Controllers\Admin\Order\AdminOrderController;
 use App\Http\Controllers\Admin\Finance\FinanceController;
 use App\Http\Controllers\Admin\Requisition\RequisitionController;
@@ -27,12 +29,25 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::match(['put', 'patch', 'post'], 'admin/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('admin/categories/{id}', [CategoryController::class, 'destroy']);
 
+    Route::get('admin/coupons', [CouponController::class, 'index']);
+    Route::post('admin/coupons', [CouponController::class, 'store']);
+    Route::get('admin/coupons/{id}', [CouponController::class, 'show']);
+    Route::match(['put', 'patch', 'post'], 'admin/coupons/{id}', [CouponController::class, 'update']);
+    Route::delete('admin/coupons/{id}', [CouponController::class, 'destroy']);
+
     Route::get('admin/products/options', [AdminProductController::class, 'options']);
     Route::get('admin/products', [AdminProductController::class, 'index']);
     Route::post('admin/products', [AdminProductController::class, 'store']);
     Route::get('admin/products/{id}', [AdminProductController::class, 'show']);
     Route::match(['put', 'patch', 'post'], 'admin/products/{id}', [AdminProductController::class, 'update']);
     Route::delete('admin/products/{id}', [AdminProductController::class, 'destroy']);
+
+    Route::get('admin/product-discounts/options', [ProductDiscountController::class, 'options']);
+    Route::get('admin/product-discounts', [ProductDiscountController::class, 'index']);
+    Route::post('admin/product-discounts', [ProductDiscountController::class, 'store']);
+    Route::get('admin/product-discounts/{id}', [ProductDiscountController::class, 'show']);
+    Route::match(['put', 'patch', 'post'], 'admin/product-discounts/{id}', [ProductDiscountController::class, 'update']);
+    Route::delete('admin/product-discounts/{id}', [ProductDiscountController::class, 'destroy']);
 
     Route::get('admin/orders', [AdminOrderController::class, 'index']);
     Route::get('admin/orders/{id}', [AdminOrderController::class, 'show']);
