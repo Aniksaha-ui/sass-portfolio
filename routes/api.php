@@ -65,6 +65,9 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/procurements', [RequisitionController::class, 'procurements']);
     Route::post('admin/procurements/{id}/receive', [RequisitionController::class, 'receive']);
     Route::post('admin/procurements/{id}/on-hand', [RequisitionController::class, 'markOnHand']);
+    Route::get('admin/stock-receipts', [RequisitionController::class, 'stocks']);
+    Route::post('admin/stock-receipts', [RequisitionController::class, 'storeStockReceipt']);
+    Route::get('admin/stock-receipts/{id}', [RequisitionController::class, 'showStockReceipt']);
     Route::get('admin/stocks', [RequisitionController::class, 'stocks']);
     Route::get('admin/product-stocks/options', [RequisitionController::class, 'productStockOptions']);
     Route::get('admin/product-stocks', [RequisitionController::class, 'productStocks']);

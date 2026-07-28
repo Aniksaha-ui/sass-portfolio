@@ -50,7 +50,7 @@ class UsersService
         }
     }
 
-    public function getUsers($perPage, $page, $search)
+    public function getUsers(int $perPage, int $page, string $search)
     {
         try {
             $user = DB::table('users')

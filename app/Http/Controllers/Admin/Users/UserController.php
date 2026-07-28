@@ -20,9 +20,9 @@ class UserController extends Controller
     public function getAllUsers(Request $request)
     {
         try {
-            $page = $request->query('page');
-            $search = $request->query('search');
-            $perPage = $request->query('perPage');
+            $page = max((int) $request->query('page', 1), 1);
+            $perPage = min(max((int) $request->query('perPage', 10), 1), 100);
+            $search = (string) $request->query('search', '');
             $response = $this->usersService->getUsers($perPage, $page, $search);
 
             return response()->json([
