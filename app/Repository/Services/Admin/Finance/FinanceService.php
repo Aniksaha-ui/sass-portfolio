@@ -23,6 +23,15 @@ class FinanceService
             ->paginate($perPage, ['*'], 'page', $page);
     }
 
+    public function transaction(int $id)
+    {
+        return DB::table('transactions as t')
+            ->join('orders as o', 'o.id', '=', 't.order_id')
+            ->join('users as u', 'u.id', '=', 'o.user_id')
+            ->where('t.id', $id)
+            ->first(['t.*', 'o.total_amount as order_total_amount', 'o.status as order_status', 'o.payment_status as order_payment_status', 'o.tran_id as order_transaction_reference', 'o.created_at as order_created_at', 'u.name as customer_name', 'u.email as customer_email', 'u.phone as customer_phone']);
+    }
+
     public function accounts(int $perPage, int $page, string $search)
     {
         return DB::table('company_accounts')
