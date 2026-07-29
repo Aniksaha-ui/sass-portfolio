@@ -38,7 +38,8 @@ class SubcategoryController extends Controller
     {
         if (! $this->subcategories->find($id)) {
             return $this->respond(false, 'Subcategory not found', [], 404);
-        } $data = $this->validated($request, $id);
+        }
+        $data = $this->validated($request, $id);
 
         return $data instanceof JsonResponse ? $data : $this->respond(true, 'Subcategory updated successfully', $this->subcategories->update($id, $data));
     }
@@ -50,7 +51,7 @@ class SubcategoryController extends Controller
 
     private function validated(Request $request, ?int $id = null)
     {
-        $validator = Validator::make($request->all(), ['category_id' => 'required|integer|exists:categories,id', 'name' => 'required|string|max:100|unique:subcategories,name'.($id ? ','.$id : ''), 'description' => 'nullable|string']);
+        $validator = Validator::make($request->all(), ['category_id' => 'required|integer|exists:categories,id', 'name' => 'required|string|max:100|unique:subcategories,name' . ($id ? ',' . $id : ''), 'description' => 'nullable|string']);
 
         return $validator->fails() ? $this->respond(false, 'Validation error', $validator->errors(), 422) : $validator->validated();
     }

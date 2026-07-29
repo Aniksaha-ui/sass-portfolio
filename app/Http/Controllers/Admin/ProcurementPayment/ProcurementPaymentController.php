@@ -38,7 +38,8 @@ class ProcurementPaymentController extends Controller
     {
         if (! $this->payments->find($id)) {
             return $this->no();
-        }$d = $this->valid($r, $id);
+        }
+        $d = $this->valid($r, $id);
 
         return $d instanceof JsonResponse ? $d : $this->ok('Payment updated successfully', $this->payments->update($id, $d));
     }
@@ -50,7 +51,7 @@ class ProcurementPaymentController extends Controller
 
     private function valid($r, $id = null)
     {
-        $v = Validator::make($r->all(), ['procurement_id' => 'required|integer|exists:procurements,id', 'company_account_id' => 'required|integer|exists:company_accounts,id', 'amount' => 'required|numeric|gt:0', 'payment_reference' => 'required|string|max:100|unique:procurement_payments,payment_reference'.($id ? ','.$id : ''), 'paid_at' => 'required|date']);
+        $v = Validator::make($r->all(), ['procurement_id' => 'required|integer|exists:procurements,id', 'company_account_id' => 'required|integer|exists:company_accounts,id', 'amount' => 'required|numeric|gt:0', 'payment_reference' => 'required|string|max:100|unique:procurement_payments,payment_reference' . ($id ? ',' . $id : ''), 'paid_at' => 'required|date']);
 
         return $v->fails() ? response()->json(['isExecuted' => false, 'message' => 'Validation error', 'data' => $v->errors()], 422) : $v->validated();
     }

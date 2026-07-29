@@ -38,7 +38,8 @@ class SectionProductController extends Controller
     {
         if (! $this->sectionProducts->find($id)) {
             return $this->respond(false, 'Section product not found', [], 404);
-        } $data = $this->validated($request, $id);
+        }
+        $data = $this->validated($request, $id);
 
         return $data instanceof JsonResponse ? $data : $this->respond(true, 'Section product updated successfully', $this->sectionProducts->update($id, $data));
     }
@@ -50,11 +51,12 @@ class SectionProductController extends Controller
 
     private function validated(Request $request, ?int $id = null)
     {
-        $unique = 'unique:section_products,product_id'.($id ? ','.$id : '').',id,section_id,'.$request->input('section_id');
+        $unique = 'unique:section_products,product_id' . ($id ? ',' . $id : '') . ',id,section_id,' . $request->input('section_id');
         $validator = Validator::make($request->all(), ['section_id' => 'required|integer|exists:sections,id', 'product_id' => ['required', 'integer', 'exists:products,id', $unique], 'bundle_id' => 'nullable|integer|exists:product_bundles,id', 'display_order' => 'nullable|integer|min:1']);
         if ($validator->fails()) {
             return $this->respond(false, 'Validation error', $validator->errors(), 422);
-        } $data = $validator->validated();
+        }
+        $data = $validator->validated();
         $data['bundle_id'] = $data['bundle_id'] ?? null;
         $data['display_order'] = $data['display_order'] ?? 1;
 

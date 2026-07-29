@@ -30,7 +30,7 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (!Auth::attempt($credentials)) {
-            return response()->json(['code'=>401,'message' => 'Unauthorized'], 401);
+            return response()->json(['code' => 401, 'message' => 'Unauthorized'], 401);
         }
 
         // Get the authenticated user

@@ -133,7 +133,8 @@ class UsersService
             if (isset($data['email']) && DB::table('users')
                 ->where('email', $data['email'])
                 ->where('id', '!=', $id)
-                ->exists()) {
+                ->exists()
+            ) {
                 return [
                     "status" => false,
                     "message" => "This email address is already in use",

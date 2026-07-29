@@ -33,7 +33,8 @@ class SectionController extends Controller
     {
         if (! $this->sections->find($id)) {
             return $this->respond(false, 'Section not found', [], 404);
-        } $data = $this->validated($request, $id);
+        }
+        $data = $this->validated($request, $id);
 
         return $data instanceof JsonResponse ? $data : $this->respond(true, 'Section updated successfully', $this->sections->update($id, $data));
     }
@@ -45,10 +46,11 @@ class SectionController extends Controller
 
     private function validated(Request $request, ?int $id = null)
     {
-        $validator = Validator::make($request->all(), ['name' => 'required|string|max:100|unique:sections,name'.($id ? ','.$id : ''), 'display_order' => 'nullable|integer|min:1', 'is_active' => 'nullable|boolean']);
+        $validator = Validator::make($request->all(), ['name' => 'required|string|max:100|unique:sections,name' . ($id ? ',' . $id : ''), 'display_order' => 'nullable|integer|min:1', 'is_active' => 'nullable|boolean']);
         if ($validator->fails()) {
             return $this->respond(false, 'Validation error', $validator->errors(), 422);
-        } $data = $validator->validated();
+        }
+        $data = $validator->validated();
         $data['display_order'] = $data['display_order'] ?? 1;
         $data['is_active'] = $data['is_active'] ?? true;
 

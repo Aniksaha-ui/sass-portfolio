@@ -55,11 +55,19 @@ class ProductService
     {
         return DB::transaction(function () use ($data, $id) {
             $productData = [
-                'subcategory_id' => $data['subcategory_id'], 'name' => $data['name'], 'description' => $data['description'] ?? null,
-                'price' => $data['price'], 'sku' => $data['sku'] ?: null, 'is_active' => $data['is_active'],
+                'subcategory_id' => $data['subcategory_id'],
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'price' => $data['price'],
+                'sku' => $data['sku'] ?: null,
+                'is_active' => $data['is_active'],
             ];
-            if ($id) { DB::table('products')->where('id', $id)->update($productData); $productId = $id; }
-            else { $productId = DB::table('products')->insertGetId($productData); }
+            if ($id) {
+                DB::table('products')->where('id', $id)->update($productData);
+                $productId = $id;
+            } else {
+                $productId = DB::table('products')->insertGetId($productData);
+            }
 
             DB::table('inventory')->where('product_id', $productId)->delete();
             DB::table('inventory')->insert(['product_id' => $productId, 'stock_quantity' => $data['stock_quantity'], 'warehouse_location' => $data['warehouse_location'] ?? null]);

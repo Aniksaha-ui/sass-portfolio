@@ -47,7 +47,8 @@ class FinanceController extends Controller
     {
         if (! $this->finance->account((int) $id)) {
             return $this->notFound('Account');
-        } $data = $this->validatedAccount($request);
+        }
+        $data = $this->validatedAccount($request);
 
         return $data instanceof JsonResponse ? $data : $this->respond('Account updated successfully.', $this->finance->updateAccount((int) $id, $data));
     }

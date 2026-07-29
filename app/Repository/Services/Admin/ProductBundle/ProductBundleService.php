@@ -11,7 +11,7 @@ class ProductBundleService
     public function paginate(int $perPage, int $page, string $search)
     {
         return DB::table('product_bundles')
-            ->where('name', 'like', '%'.$search.'%')
+            ->where('name', 'like', '%' . $search . '%')
             ->orderByDesc('id')
             ->paginate($perPage, self::FIELDS, 'page', $page);
     }

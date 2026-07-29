@@ -8,7 +8,7 @@ class ProcurementPaymentService
 {
     public function paginate($perPage, $page, $search)
     {
-        return DB::table('procurement_payments as pp')->join('procurements as p', 'p.id', '=', 'pp.procurement_id')->join('company_accounts as ca', 'ca.id', '=', 'pp.company_account_id')->where(fn ($q) => $q->where('p.procurement_number', 'like', "%{$search}%")->orWhere('ca.account_name', 'like', "%{$search}%")->orWhere('pp.payment_reference', 'like', "%{$search}%"))->orderByDesc('pp.paid_at')->paginate($perPage, ['pp.*', 'p.procurement_number', 'ca.account_name', 'ca.account_number'], 'page', $page);
+        return DB::table('procurement_payments as pp')->join('procurements as p', 'p.id', '=', 'pp.procurement_id')->join('company_accounts as ca', 'ca.id', '=', 'pp.company_account_id')->where(fn($q) => $q->where('p.procurement_number', 'like', "%{$search}%")->orWhere('ca.account_name', 'like', "%{$search}%")->orWhere('pp.payment_reference', 'like', "%{$search}%"))->orderByDesc('pp.paid_at')->paginate($perPage, ['pp.*', 'p.procurement_number', 'ca.account_name', 'ca.account_number'], 'page', $page);
     }
 
     public function find($id)
@@ -37,6 +37,6 @@ class ProcurementPaymentService
 
     public function delete($id)
     {
-        return DB::table('procurement_payments')->where('id',$id)->delete();
+        return DB::table('procurement_payments')->where('id', $id)->delete();
     }
 }

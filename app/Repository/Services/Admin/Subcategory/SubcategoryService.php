@@ -8,7 +8,7 @@ class SubcategoryService
 {
     public function paginate(int $perPage, int $page, string $search)
     {
-        return DB::table('subcategories as s')->join('categories as c', 'c.id', '=', 's.category_id')->where(fn ($q) => $q->where('s.name', 'like', "%{$search}%")->orWhere('s.description', 'like', "%{$search}%")->orWhere('c.name', 'like', "%{$search}%"))->orderBy('c.name')->orderBy('s.name')->paginate($perPage, ['s.id', 's.category_id', 's.name', 's.description', 's.created_at', 's.updated_at', 'c.name as category_name'], 'page', $page);
+        return DB::table('subcategories as s')->join('categories as c', 'c.id', '=', 's.category_id')->where(fn($q) => $q->where('s.name', 'like', "%{$search}%")->orWhere('s.description', 'like', "%{$search}%")->orWhere('c.name', 'like', "%{$search}%"))->orderBy('c.name')->orderBy('s.name')->paginate($perPage, ['s.id', 's.category_id', 's.name', 's.description', 's.created_at', 's.updated_at', 'c.name as category_name'], 'page', $page);
     }
 
     public function options()
