@@ -6,15 +6,54 @@ use App\Constants\ResponseConstants;
 use App\Repository\Services\Common\CommonService;
 use DB;
 use Exception;
-use InvalidArgumentException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 class OrderService
 {
+    public function cancelMyOrder(int $orderId): array
+    {
+        return DB::transaction(function () use ($orderId) {
+            $order = DB::table('orders')->where('id', $orderId)->where('user_id', Auth::id())->lockForUpdate()->first();
+            if (! $order) {
+                return ['status' => false, 'message' => 'Order not found.', 'data' => []];
+            }
+            if (in_array($order->status, ['shipped', 'delivered', 'cancelled'], true)) {
+                return ['status' => false, 'message' => 'This order can no longer be cancelled.', 'data' => []];
+            }
+            $deductions = DB::table('order_tracking')->where('order_id', $orderId)->where('status', '_inventory_deducted')->get();
+            if ($deductions->isNotEmpty() && ! DB::table('order_tracking')->where('order_id', $orderId)->where('status', '_inventory_restored')->exists()) {
+                foreach ($deductions as $movement) {
+                    [$inventoryId, $quantity] = array_map('intval', explode(':', (string) $movement->location));
+                    DB::table('inventory')->where('id', $inventoryId)->increment('stock_quantity', $quantity);
+                }
+                DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => '_inventory_restored', 'location' => null, 'updated_at' => now()]);
+            }
+            DB::table('orders')->where('id', $orderId)->update(['status' => 'cancelled', 'updated_at' => now()]);
+            DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => 'cancelled', 'location' => 'Cancelled by customer', 'updated_at' => now()]);
+
+            $isPaid = $order->payment_status === 'paid';
+            foreach (DB::table('order_items')->where('order_id', $orderId)->get(['product_id', 'quantity', 'price']) as $item) {
+                $return = DB::table('returns')->where('order_id', $orderId)->where('product_id', $item->product_id)->first();
+                if ($return) {
+                    continue;
+                }
+                $amount = round((float) $item->quantity * (float) $item->price, 2);
+                $returnId = DB::table('returns')->insertGetId(['order_id' => $orderId, 'product_id' => $item->product_id, 'reason' => 'Order cancelled by customer', 'status' => $isPaid ? 'refunded' : 'approved', 'refund_amount' => $isPaid ? $amount : null, 'created_at' => now(), 'updated_at' => now()]);
+                if ($isPaid) {
+                    DB::table('refunds')->insert(['return_id' => $returnId, 'order_id' => $orderId, 'user_id' => $order->user_id, 'amount' => $amount, 'status' => 'processed', 'refund_reference' => 'CANCEL-'.$orderId.'-'.$returnId.'-'.now()->format('His'), 'processed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+                }
+            }
+
+            return ['status' => true, 'message' => 'Order cancelled successfully.', 'data' => ['return_records_created' => true, 'refund_processed' => $isPaid]];
+        });
+    }
+
     private const DEFAULT_COMPANY_ACCOUNT_TYPE = 'account';
+
     private const ACCOUNT_HISTORY_PURPOSE = 'order_payment';
 
     private $commonService;

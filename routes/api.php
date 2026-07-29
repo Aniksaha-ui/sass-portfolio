@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\Product\ProductDiscountController;
 use App\Http\Controllers\Admin\ProductBundle\ProductBundleController;
 use App\Http\Controllers\Admin\ProductReview\ProductReviewController;
 use App\Http\Controllers\Admin\Requisition\RequisitionController;
+use App\Http\Controllers\Admin\ReturnController;
 use App\Http\Controllers\Admin\Section\SectionController;
 use App\Http\Controllers\Admin\SectionProduct\SectionProductController;
 use App\Http\Controllers\Admin\Subcategory\SubcategoryController;
@@ -59,6 +60,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/procurement-payments/{id}', [ProcurementPaymentController::class, 'show']);
     Route::match(['put', 'patch'], 'admin/procurement-payments/{id}', [ProcurementPaymentController::class, 'update']);
     Route::delete('admin/procurement-payments/{id}', [ProcurementPaymentController::class, 'destroy']);
+    Route::get('admin/returns', [ReturnController::class, 'index']);
+    Route::post('admin/returns', [ReturnController::class, 'store']);
+    Route::patch('admin/returns/{id}', [ReturnController::class, 'update']);
+    Route::delete('admin/returns/{id}', [ReturnController::class, 'destroy']);
 
     Route::get('admin/coupons', [CouponController::class, 'index']);
     Route::post('admin/coupons', [CouponController::class, 'store']);
@@ -148,6 +153,7 @@ Route::middleware(['auth:sanctum', 'users'])->group(function () {
     Route::post('users/order', [OrderController::class, 'order']);
     Route::get('users/orders', [OrderController::class, 'getMyOrders']);
     Route::get('users/orders/{id}', [OrderController::class, 'getOrderDetails']);
+    Route::post('users/orders/{id}/cancel', [OrderController::class, 'cancelMyOrder']);
 });
 
 Route::post('/users/order/success', [OrderController::class, 'success'])->name('payment.success');

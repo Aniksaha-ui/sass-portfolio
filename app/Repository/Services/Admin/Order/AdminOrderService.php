@@ -30,7 +30,9 @@ class AdminOrderService
             ->where('o.id', $id)
             ->select('o.*', 'u.name as customer_name', 'u.email as customer_email', 'u.phone as customer_phone', 'a.address_line1', 'a.address_line2', 'a.city as address_city', 'a.state as address_state', 'a.postal_code', 'a.country as address_country', 'a.phone as address_phone')
             ->first();
-        if (!$order) return null;
+        if (! $order) {
+            return null;
+        }
 
         $order->items = DB::table('order_items as oi')
             ->leftJoin('products as p', 'p.id', '=', 'oi.product_id')
@@ -38,6 +40,7 @@ class AdminOrderService
             ->select('oi.id', 'oi.product_id', 'oi.quantity', 'oi.price', 'p.name as product_name', 'p.sku')
             ->get();
         $order->tracking = DB::table('order_tracking')->where('order_id', $id)->orderBy('updated_at')->orderBy('id')->get();
+
         return $order;
     }
 
@@ -45,11 +48,41 @@ class AdminOrderService
     {
         return DB::transaction(function () use ($id, $data) {
             $order = DB::table('orders')->where('id', $id)->lockForUpdate()->first();
-            if (!$order) return null;
+            if (! $order) {
+                return null;
+            }
             $status = $data['status'];
+            if (in_array($status, ['processing', 'shipped', 'delivered'], true) && ! DB::table('order_tracking')->where('order_id', $id)->where('status', '_inventory_deducted')->exists()) {
+                $this->deductInventory($id);
+            }
+            if ($status === 'cancelled' && DB::table('order_tracking')->where('order_id', $id)->where('status', '_inventory_deducted')->exists() && ! DB::table('order_tracking')->where('order_id', $id)->where('status', '_inventory_restored')->exists()) {
+                $this->restoreInventory($id, '_inventory_deducted', '_inventory_restored');
+            }
             DB::table('orders')->where('id', $id)->update(['status' => $status, 'updated_at' => now()]);
             DB::table('order_tracking')->insert(['order_id' => $id, 'status' => $status, 'location' => $data['location'] ?? null, 'updated_at' => now()]);
+
             return $this->find($id);
         });
+    }
+
+    private function deductInventory(int $orderId): void
+    {
+        foreach (DB::table('order_items')->where('order_id', $orderId)->get(['product_id', 'quantity']) as $item) {
+            $stock = DB::table('inventory')->where('product_id', $item->product_id)->orderBy('id')->lockForUpdate()->first();
+            if (! $stock || $stock->stock_quantity < $item->quantity) {
+                throw new \InvalidArgumentException('Insufficient inventory for product #'.$item->product_id.'.');
+            }
+            DB::table('inventory')->where('id', $stock->id)->decrement('stock_quantity', $item->quantity);
+            DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => '_inventory_deducted', 'location' => $stock->id.':'.$item->quantity, 'updated_at' => now()]);
+        }
+    }
+
+    private function restoreInventory(int $orderId, string $sourceStatus, string $restoreStatus): void
+    {
+        foreach (DB::table('order_tracking')->where('order_id', $orderId)->where('status', $sourceStatus)->get() as $movement) {
+            [$inventoryId, $quantity] = array_map('intval', explode(':', (string) $movement->location));
+            DB::table('inventory')->where('id', $inventoryId)->increment('stock_quantity', $quantity);
+        }
+        DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => $restoreStatus, 'location' => null, 'updated_at' => now()]);
     }
 }

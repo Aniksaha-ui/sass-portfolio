@@ -10,12 +10,13 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-
     private $orderService;
+
     public function __construct(OrderService $orderService)
     {
         $this->orderService = $orderService;
     }
+
     public function order(Request $request)
     {
         $request->validate([
@@ -42,9 +43,10 @@ class OrderController extends Controller
 
         try {
             $response = $this->orderService->order($request->all());
+
             return response()->json($response);
         } catch (Exception $ex) {
-            Log::info("OrderController : order function error: " . $ex->getMessage());
+            Log::info('OrderController : order function error: '.$ex->getMessage());
         }
     }
 
@@ -52,13 +54,14 @@ class OrderController extends Controller
     {
         try {
             $response = $this->orderService->myOrders();
+
             return response()->json([
                 'isExecuted' => $response['status'],
                 'message' => $response['message'],
                 'data' => $response['data'],
             ], 200);
         } catch (Exception $ex) {
-            Log::info('OrderController : getMyOrders function error: ' . $ex->getMessage());
+            Log::info('OrderController : getMyOrders function error: '.$ex->getMessage());
         }
     }
 
@@ -66,14 +69,22 @@ class OrderController extends Controller
     {
         try {
             $response = $this->orderService->orderDetails($id);
+
             return response()->json([
                 'isExecuted' => $response['status'],
                 'message' => $response['message'],
                 'data' => $response['data'],
             ], $response['status'] ? 200 : 404);
         } catch (Exception $ex) {
-            Log::info('OrderController : getOrderDetails function error: ' . $ex->getMessage());
+            Log::info('OrderController : getOrderDetails function error: '.$ex->getMessage());
         }
+    }
+
+    public function cancelMyOrder($id)
+    {
+        $response = $this->orderService->cancelMyOrder((int) $id);
+
+        return response()->json(['isExecuted' => $response['status'], 'message' => $response['message'], 'data' => $response['data']], $response['status'] ? 200 : 422);
     }
 
     public function success(Request $request)
