@@ -44,10 +44,29 @@ class FinanceService
             ->paginate($perPage, ['*'], 'page', $page);
     }
 
-    public function account(int $id) { return DB::table('company_accounts')->where('id', $id)->first(); }
-    public function createAccount(array $data) { $id = DB::table('company_accounts')->insertGetId([...$data, 'created_at' => now(), 'updated_at' => now()]); return $this->account($id); }
-    public function updateAccount(int $id, array $data) { DB::table('company_accounts')->where('id', $id)->update([...$data, 'updated_at' => now()]); return $this->account($id); }
-    public function deleteAccount(int $id) { return DB::table('company_accounts')->where('id', $id)->delete(); }
+    public function account(int $id)
+    {
+        return DB::table('company_accounts')->where('id', $id)->first();
+    }
+
+    public function createAccount(array $data)
+    {
+        $id = DB::table('company_accounts')->insertGetId([...$data, 'created_at' => now(), 'updated_at' => now()]);
+
+        return $this->account($id);
+    }
+
+    public function updateAccount(int $id, array $data)
+    {
+        DB::table('company_accounts')->where('id', $id)->update([...$data, 'updated_at' => now()]);
+
+        return $this->account($id);
+    }
+
+    public function deleteAccount(int $id)
+    {
+        return DB::table('company_accounts')->where('id', $id)->delete();
+    }
 
     public function accountHistory(int $perPage, int $page, string $search)
     {

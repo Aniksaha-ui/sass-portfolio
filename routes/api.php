@@ -2,21 +2,21 @@
 
 use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Category\CategoryController;
-use App\Http\Controllers\Admin\Subcategory\SubcategoryController;
-use App\Http\Controllers\Admin\Section\SectionController;
-use App\Http\Controllers\Admin\SectionProduct\SectionProductController;
 use App\Http\Controllers\Admin\Coupon\CouponController;
+use App\Http\Controllers\Admin\Finance\FinanceController;
+use App\Http\Controllers\Admin\Order\AdminOrderController;
+use App\Http\Controllers\Admin\ProcurementPayment\ProcurementPaymentController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\Product\ProductDiscountController;
 use App\Http\Controllers\Admin\ProductBundle\ProductBundleController;
-use App\Http\Controllers\Admin\Order\AdminOrderController;
-use App\Http\Controllers\Admin\Finance\FinanceController;
 use App\Http\Controllers\Admin\Requisition\RequisitionController;
-use App\Http\Controllers\Admin\Projects\ProjectController;
+use App\Http\Controllers\Admin\Section\SectionController;
+use App\Http\Controllers\Admin\SectionProduct\SectionProductController;
+use App\Http\Controllers\Admin\Subcategory\SubcategoryController;
 use App\Http\Controllers\Admin\Users\UserController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\User\Blog\UserBlogController;
 use App\Http\Controllers\User\Address\AddressController;
+use App\Http\Controllers\User\Blog\UserBlogController;
 use App\Http\Controllers\User\Cart\CartController;
 use App\Http\Controllers\User\Order\OrderController;
 use App\Http\Controllers\User\Products\ProductController;
@@ -52,6 +52,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/section-products/{id}', [SectionProductController::class, 'show']);
     Route::match(['put', 'patch'], 'admin/section-products/{id}', [SectionProductController::class, 'update']);
     Route::delete('admin/section-products/{id}', [SectionProductController::class, 'destroy']);
+    Route::get('admin/procurement-payments/options', [ProcurementPaymentController::class, 'options']);
+    Route::get('admin/procurement-payments', [ProcurementPaymentController::class, 'index']);
+    Route::post('admin/procurement-payments', [ProcurementPaymentController::class, 'store']);
+    Route::get('admin/procurement-payments/{id}', [ProcurementPaymentController::class, 'show']);
+    Route::match(['put', 'patch'], 'admin/procurement-payments/{id}', [ProcurementPaymentController::class, 'update']);
+    Route::delete('admin/procurement-payments/{id}', [ProcurementPaymentController::class, 'destroy']);
 
     Route::get('admin/coupons', [CouponController::class, 'index']);
     Route::post('admin/coupons', [CouponController::class, 'store']);
