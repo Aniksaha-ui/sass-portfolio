@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ProcurementPayment\ProcurementPaymentController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\Product\ProductDiscountController;
 use App\Http\Controllers\Admin\ProductBundle\ProductBundleController;
+use App\Http\Controllers\Admin\ProductReview\ProductReviewController;
 use App\Http\Controllers\Admin\Requisition\RequisitionController;
 use App\Http\Controllers\Admin\Section\SectionController;
 use App\Http\Controllers\Admin\SectionProduct\SectionProductController;
@@ -84,6 +85,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/product-bundles/{id}', [ProductBundleController::class, 'show']);
     Route::match(['put', 'patch'], 'admin/product-bundles/{id}', [ProductBundleController::class, 'update']);
     Route::delete('admin/product-bundles/{id}', [ProductBundleController::class, 'destroy']);
+
+    Route::get('admin/product-reviews/options', [ProductReviewController::class, 'options']);
+    Route::get('admin/product-reviews', [ProductReviewController::class, 'index']);
+    Route::post('admin/product-reviews', [ProductReviewController::class, 'store']);
+    Route::get('admin/product-reviews/{id}', [ProductReviewController::class, 'show']);
+    Route::match(['put', 'patch'], 'admin/product-reviews/{id}', [ProductReviewController::class, 'update']);
+    Route::delete('admin/product-reviews/{id}', [ProductReviewController::class, 'destroy']);
 
     Route::get('admin/orders', [AdminOrderController::class, 'index']);
     Route::get('admin/orders/{id}', [AdminOrderController::class, 'show']);
