@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\Blog\BlogController;
 use App\Http\Controllers\Admin\Category\CategoryController;
 use App\Http\Controllers\Admin\Subcategory\SubcategoryController;
 use App\Http\Controllers\Admin\Section\SectionController;
+use App\Http\Controllers\Admin\SectionProduct\SectionProductController;
 use App\Http\Controllers\Admin\Coupon\CouponController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\Product\ProductDiscountController;
@@ -44,6 +45,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/sections/{id}', [SectionController::class, 'show']);
     Route::match(['put', 'patch'], 'admin/sections/{id}', [SectionController::class, 'update']);
     Route::delete('admin/sections/{id}', [SectionController::class, 'destroy']);
+
+    Route::get('admin/section-products/options', [SectionProductController::class, 'options']);
+    Route::get('admin/section-products', [SectionProductController::class, 'index']);
+    Route::post('admin/section-products', [SectionProductController::class, 'store']);
+    Route::get('admin/section-products/{id}', [SectionProductController::class, 'show']);
+    Route::match(['put', 'patch'], 'admin/section-products/{id}', [SectionProductController::class, 'update']);
+    Route::delete('admin/section-products/{id}', [SectionProductController::class, 'destroy']);
 
     Route::get('admin/coupons', [CouponController::class, 'index']);
     Route::post('admin/coupons', [CouponController::class, 'store']);
