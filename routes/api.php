@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\Product\ProductController as AdminProductControll
 use App\Http\Controllers\Admin\Product\ProductDiscountController;
 use App\Http\Controllers\Admin\ProductBundle\ProductBundleController;
 use App\Http\Controllers\Admin\ProductReview\ProductReviewController;
+use App\Http\Controllers\Admin\RefundController;
 use App\Http\Controllers\Admin\Requisition\RequisitionController;
 use App\Http\Controllers\Admin\ReturnController;
 use App\Http\Controllers\Admin\Section\SectionController;
@@ -62,8 +63,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::delete('admin/procurement-payments/{id}', [ProcurementPaymentController::class, 'destroy']);
     Route::get('admin/returns', [ReturnController::class, 'index']);
     Route::post('admin/returns', [ReturnController::class, 'store']);
+    Route::get('admin/returns/{id}', [ReturnController::class, 'show']);
     Route::patch('admin/returns/{id}', [ReturnController::class, 'update']);
     Route::delete('admin/returns/{id}', [ReturnController::class, 'destroy']);
+    Route::get('admin/refunds', [RefundController::class, 'index']);
+    Route::get('admin/refunds/{id}', [RefundController::class, 'show']);
 
     Route::get('admin/coupons', [CouponController::class, 'index']);
     Route::post('admin/coupons', [CouponController::class, 'store']);

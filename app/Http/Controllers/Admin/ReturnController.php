@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Repository\Services\Admin\ReturnManagement\ReturnDetailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -10,12 +11,48 @@ use Illuminate\Support\Facades\Validator;
 
 class ReturnController extends Controller
 {
+    public function __construct(private ReturnDetailService $details) {}
+
     public function index(Request $request)
     {
         $search = (string) $request->query('search', '');
-        $records = DB::table('returns as r')->join('orders as o', 'o.id', '=', 'r.order_id')->join('products as p', 'p.id', '=', 'r.product_id')->where(fn ($query) => $query->where('o.id', 'like', "%{$search}%")->orWhere('p.name', 'like', "%{$search}%")->orWhere('r.status', 'like', "%{$search}%"))->orderByDesc('r.id')->paginate(min(max((int) $request->query('perPage', 10), 1), 100), ['r.*', 'p.name as product_name'], 'page', max((int) $request->query('page', 1), 1));
+        $records = DB::table('returns as r')
+            ->join('orders as o', 'o.id', '=', 'r.order_id')
+            ->join('users as u', 'u.id', '=', 'o.user_id')
+            ->join('products as p', 'p.id', '=', 'r.product_id')
+            ->where(fn ($query) => $query
+                ->where('o.id', 'like', "%{$search}%")
+                ->orWhere('p.name', 'like', "%{$search}%")
+                ->orWhere('p.sku', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%")
+                ->orWhere('u.email', 'like', "%{$search}%")
+                ->orWhere('r.status', 'like', "%{$search}%"))
+            ->orderByDesc('r.id')
+            ->paginate(
+                min(max((int) $request->query('perPage', 10), 1), 100),
+                [
+                    'r.*',
+                    'p.name as product_name',
+                    'p.sku as product_sku',
+                    'u.name as customer_name',
+                    'u.email as customer_email',
+                    'o.status as order_status',
+                    'o.payment_status as order_payment_status',
+                ],
+                'page',
+                max((int) $request->query('page', 1), 1)
+            );
 
         return $this->respond(true, 'Returns fetched successfully', $records);
+    }
+
+    public function show(int $id)
+    {
+        $detail = $this->details->findReturn($id);
+
+        return $detail
+            ? $this->respond(true, 'Return details fetched successfully', $detail)
+            : $this->respond(false, 'Return not found', [], 404);
     }
 
     public function store(Request $request)
@@ -45,18 +82,48 @@ class ReturnController extends Controller
         if (! $this->orderContainsProduct($data['order_id'], $data['product_id'])) {
             return $this->respond(false, 'The product does not belong to this order.', [], 422);
         }
+        if ($data['status'] === 'refunded' && ($data['refund_amount'] ?? null) === null) {
+            $data['refund_amount'] = DB::table('order_items')
+                ->where('order_id', $data['order_id'])
+                ->where('product_id', $data['product_id'])
+                ->sum(DB::raw('quantity * price'));
+        }
         DB::transaction(function () use ($return, $data, $id) {
-            if ($data['status'] === 'approved' && $return->status !== 'approved') {
+            if (
+                $data['status'] === 'approved'
+                && $return->status !== 'approved'
+                && ! $this->stockWasRestored($id)
+            ) {
                 $this->restoreReturnedStock($id, $return->order_id, $return->product_id);
             }
             DB::table('returns')->where('id', $id)->update($data);
             if ($data['status'] === 'refunded' && $return->status !== 'refunded') {
                 $userId = DB::table('orders')->where('id', $return->order_id)->value('user_id');
-                DB::table('refunds')->insert(['return_id' => $id, 'order_id' => $return->order_id, 'user_id' => $userId, 'amount' => $data['refund_amount'], 'status' => 'processed', 'refund_reference' => 'REF-'.$id.'-'.now()->format('YmdHis'), 'processed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+                $refund = DB::table('refunds')->where('return_id', $id)->first();
+                if ($refund) {
+                    DB::table('refunds')->where('id', $refund->id)->update([
+                        'amount' => $data['refund_amount'],
+                        'status' => 'processed',
+                        'processed_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    DB::table('refunds')->insert([
+                        'return_id' => $id,
+                        'order_id' => $return->order_id,
+                        'user_id' => $userId,
+                        'amount' => $data['refund_amount'],
+                        'status' => 'processed',
+                        'refund_reference' => 'REF-'.$id.'-'.now()->format('YmdHis'),
+                        'processed_at' => now(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
             }
         });
 
-        return $this->respond(true, 'Return updated successfully', DB::table('returns')->find($id));
+        return $this->respond(true, 'Return updated successfully', $this->details->findReturn($id));
     }
 
     public function destroy(int $id)
@@ -78,6 +145,42 @@ class ReturnController extends Controller
     private function orderContainsProduct(int $orderId, int $productId): bool
     {
         return DB::table('order_items')->where('order_id', $orderId)->where('product_id', $productId)->exists();
+    }
+
+    private function stockWasRestored(int $returnId): bool
+    {
+        if (DB::table('inventory_adjustments')
+            ->where('reason', 'like', 'Return #'.$returnId.' %')
+            ->exists()) {
+            return true;
+        }
+
+        $return = DB::table('returns')->where('id', $returnId)->first(['order_id', 'product_id']);
+        if (
+            ! $return
+            || ! DB::table('order_tracking')
+                ->where('order_id', $return->order_id)
+                ->where('status', '_inventory_restored')
+                ->exists()
+        ) {
+            return false;
+        }
+
+        foreach (DB::table('order_tracking')
+            ->where('order_id', $return->order_id)
+            ->where('status', '_inventory_deducted')
+            ->pluck('location') as $location) {
+            $parts = explode(':', (string) $location);
+            if (count($parts) !== 2) {
+                continue;
+            }
+
+            if ((int) DB::table('inventory')->where('id', (int) $parts[0])->value('product_id') === (int) $return->product_id) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function validated(Request $request)
