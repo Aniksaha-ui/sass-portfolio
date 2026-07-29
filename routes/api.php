@@ -63,8 +63,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/transactions', [FinanceController::class, 'transactions']);
     Route::get('admin/transactions/{id}', [FinanceController::class, 'transaction']);
     Route::get('admin/company-accounts', [FinanceController::class, 'accounts']);
-    Route::get('admin/account-history', [FinanceController::class, 'history']);
+    Route::post('admin/company-accounts', [FinanceController::class, 'storeAccount']);
     Route::get('admin/company-accounts/summary', [FinanceController::class, 'summary']);
+    Route::get('admin/company-accounts/{id}', [FinanceController::class, 'account']);
+    Route::match(['put', 'patch'], 'admin/company-accounts/{id}', [FinanceController::class, 'updateAccount']);
+    Route::delete('admin/company-accounts/{id}', [FinanceController::class, 'deleteAccount']);
+    Route::get('admin/account-history', [FinanceController::class, 'history']);
 
     Route::get('admin/requisitions/options', [RequisitionController::class, 'options']);
     Route::get('admin/requisitions', [RequisitionController::class, 'index']);
