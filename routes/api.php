@@ -71,6 +71,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/stocks', [RequisitionController::class, 'stocks']);
     Route::get('admin/product-stocks/options', [RequisitionController::class, 'productStockOptions']);
     Route::get('admin/product-stocks', [RequisitionController::class, 'productStocks']);
+    Route::get('admin/inventory-adjustments', [RequisitionController::class, 'inventoryAdjustments']);
+    Route::get('admin/inventory-adjustments/{id}', [RequisitionController::class, 'showInventoryAdjustment']);
     Route::post('admin/product-stocks', [RequisitionController::class, 'saveProductStock']);
     Route::post('admin/product-stocks/{id}', [RequisitionController::class, 'adjustProductStock']);
 
