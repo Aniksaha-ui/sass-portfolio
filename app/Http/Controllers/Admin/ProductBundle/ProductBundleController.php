@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\ProductBundle;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProductBundleRequest;
 use App\Repository\Services\Admin\ProductBundle\ProductBundleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,19 +26,21 @@ class ProductBundleController extends Controller
         return $this->found($this->bundles->find($id));
     }
 
-    public function store(Request $request)
+    public function store(ProductBundleRequest $request)
     {
-        $data = $this->validated($request);
+        $data = $request->validated();
+        $data['is_active'] = $data['is_active'] ?? true;
 
         return $data instanceof JsonResponse ? $data : $this->respond(true, 'Product bundle created successfully', $this->bundles->create($data), 201);
     }
 
-    public function update(int $id, Request $request)
+    public function update(int $id, ProductBundleRequest $request)
     {
         if (! $this->bundles->find($id)) {
             return $this->respond(false, 'Product bundle not found', [], 404);
         }
-        $data = $this->validated($request);
+        $data = $request->validated();
+        $data['is_active'] = $data['is_active'] ?? true;
 
         return $data instanceof JsonResponse ? $data : $this->respond(true, 'Product bundle updated successfully', $this->bundles->update($id, $data));
     }

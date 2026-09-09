@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Users;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UserRequest;
 use App\Repository\Services\Admin\Users\UsersService;
 use Exception;
 use Illuminate\Http\Request;
@@ -35,11 +36,11 @@ class UserController extends Controller
         }
     }
 
-    public function addNewUser(Request $request)
+    public function addNewUser(UserRequest $request)
     {
         try {
 
-            $insertedUserInformation = $this->usersService->store($request->all());
+            $insertedUserInformation = $this->usersService->store($request->validated());
             Log::info(json_encode($insertedUserInformation));
             return response()->json([
                 "isExecuted" => $insertedUserInformation['status'],
@@ -65,12 +66,12 @@ class UserController extends Controller
         }
     }
 
-    public function updateUser($id, Request $request)
+    public function updateUser($id, UserRequest $request)
     {
         try {
 
 
-            $response = $this->usersService->updateUser($id, $request->all());
+            $response = $this->usersService->updateUser($id, $request->validated());
             return response()->json([
                 "isExecuted" => $response['status'],
                 "message" => $response['message'],

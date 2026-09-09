@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Subcategory;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SubcategoryRequest;
 use App\Repository\Services\Admin\Subcategory\SubcategoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,21 +28,17 @@ class SubcategoryController extends Controller
         return $this->found($this->subcategories->find($id));
     }
 
-    public function store(Request $request)
+    public function store(SubcategoryRequest $request)
     {
-        $data = $this->validated($request);
-
-        return $data instanceof JsonResponse ? $data : $this->respond(true, 'Subcategory created successfully', $this->subcategories->create($data), 201);
+        return $this->respond(true, 'Subcategory created successfully', $this->subcategories->create($request->validated()), 201);
     }
 
-    public function update(int $id, Request $request)
+    public function update(int $id, SubcategoryRequest $request)
     {
         if (! $this->subcategories->find($id)) {
             return $this->respond(false, 'Subcategory not found', [], 404);
         }
-        $data = $this->validated($request, $id);
-
-        return $data instanceof JsonResponse ? $data : $this->respond(true, 'Subcategory updated successfully', $this->subcategories->update($id, $data));
+        return $this->respond(true, 'Subcategory updated successfully', $this->subcategories->update($id, $request->validated()));
     }
 
     public function destroy(int $id)

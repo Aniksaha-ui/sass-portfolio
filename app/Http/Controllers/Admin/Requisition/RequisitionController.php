@@ -3,6 +3,12 @@
 namespace App\Http\Controllers\Admin\Requisition;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProcurementOnHandRequest;
+use App\Http\Requests\ProcurementReceiveRequest;
+use App\Http\Requests\ProductStockRequest;
+use App\Http\Requests\RequisitionRequest;
+use App\Http\Requests\StockAdjustmentRequest;
+use App\Http\Requests\StockReceiptRequest;
 use App\Repository\Services\Admin\Requisition\RequisitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -18,10 +24,9 @@ class RequisitionController extends Controller
     {
         return $this->respond(true, 'Requisitions fetched successfully', $this->service->requisitions($this->perPage($request), $this->page($request), $request->query('search', '')));
     }
-    public function store(Request $request)
+    public function store(RequisitionRequest $request)
     {
-        $data = $this->validateRequisition($request);
-        return $data instanceof \Illuminate\Http\JsonResponse ? $data : $this->respond(true, 'Requisition created successfully', $this->service->create($data), 201);
+        return $this->respond(true, 'Requisition created successfully', $this->service->create($request->validated()), 201);
     }
     public function accept($id, Request $request)
     {
@@ -32,22 +37,18 @@ class RequisitionController extends Controller
     {
         return $this->respond(true, 'Procurements fetched successfully', $this->service->procurements($this->perPage($request), $this->page($request), $request->query('search', '')));
     }
-    public function receive($id, Request $request)
+    public function receive($id, ProcurementReceiveRequest $request)
     {
         return $this->receiveStock((int) $id, $request);
     }
-    public function storeStockReceipt(Request $request)
+    public function storeStockReceipt(StockReceiptRequest $request)
     {
-        $validator = Validator::make($request->all(), ['procurement_id' => 'required|integer|exists:procurements,id']);
-        if ($validator->fails()) return $this->respond(false, 'Validation error', $validator->errors(), 422);
-        return $this->receiveStock((int) $validator->validated()['procurement_id'], $request);
+        return $this->receiveStock((int) $request->validated()['procurement_id'], $request);
     }
-    public function markOnHand($id, Request $request)
+    public function markOnHand($id, ProcurementOnHandRequest $request)
     {
-        $validator = Validator::make($request->all(), ['warehouse_location' => 'required|string|max:100', 'payments' => 'required|array|min:1', 'payments.*.company_account_id' => 'required|integer|distinct|exists:company_accounts,id', 'payments.*.amount' => 'required|numeric|min:0.01']);
-        if ($validator->fails()) return $this->respond(false, 'Validation error', $validator->errors(), 422);
         try {
-            $data = $validator->validated();
+            $data = $request->validated();
             $record = $this->service->markOnHand($id, $data['warehouse_location'], $data['payments'], $request->user()?->id, $request->ip());
             return $record ? $this->respond(true, 'Procurement is on hand, inventory updated, and payment recorded.', $record) : $this->respond(false, 'Procurement is not available to mark on hand.', [], 422);
         } catch (\InvalidArgumentException $e) {
@@ -80,17 +81,13 @@ class RequisitionController extends Controller
         $adjustment = $this->service->inventoryAdjustment((int) $id);
         return $adjustment ? $this->respond(true, 'Inventory adjustment fetched successfully', $adjustment) : $this->respond(false, 'Inventory adjustment not found', [], 404);
     }
-    public function saveProductStock(Request $request)
+    public function saveProductStock(ProductStockRequest $request)
     {
-        $validator = Validator::make($request->all(), ['product_id' => 'required|integer|exists:products,id', 'warehouse_location' => 'required|string|max:100', 'stock_quantity' => 'required|integer|min:0', 'reason' => 'nullable|string|max:255']);
-        if ($validator->fails()) return $this->respond(false, 'Validation error', $validator->errors(), 422);
-        return $this->respond(true, 'Stock saved successfully', $this->service->saveProductStock($validator->validated(), $request->user()?->id));
+        return $this->respond(true, 'Stock saved successfully', $this->service->saveProductStock($request->validated(), $request->user()?->id));
     }
-    public function adjustProductStock($id, Request $request)
+    public function adjustProductStock($id, StockAdjustmentRequest $request)
     {
-        $validator = Validator::make($request->all(), ['stock_quantity' => 'required|integer|min:0', 'reason' => 'nullable|string|max:255']);
-        if ($validator->fails()) return $this->respond(false, 'Validation error', $validator->errors(), 422);
-        $record = $this->service->adjustProductStock($id, $validator->validated(), $request->user()?->id);
+        $record = $this->service->adjustProductStock($id, $request->validated(), $request->user()?->id);
         return $record ? $this->respond(true, 'Stock updated successfully', $record) : $this->respond(false, 'Stock record not found', [], 404);
     }
     private function validateRequisition(Request $request)
@@ -98,12 +95,10 @@ class RequisitionController extends Controller
         $validator = Validator::make($request->all(), ['requested_by' => 'required|string|max:255', 'department' => 'nullable|string|max:100', 'priority' => 'nullable|in:low,normal,high,urgent', 'required_by' => 'nullable|date', 'supplier_name' => 'nullable|string|max:255', 'reference_no' => 'nullable|string|max:100', 'notes' => 'nullable|string', 'items' => 'required|array|min:1', 'items.*.product_id' => 'required|integer|distinct|exists:products,id', 'items.*.quantity' => 'required|integer|min:1', 'items.*.unit_cost' => 'nullable|numeric|min:0']);
         return $validator->fails() ? $this->respond(false, 'Validation error', $validator->errors(), 422) : $validator->validated();
     }
-    private function receiveStock(int $procurementId, Request $request)
+    private function receiveStock(int $procurementId, \App\Http\Requests\ApiRequest $request)
     {
-        $validator = Validator::make($request->all(), ['warehouse_location' => 'required|string|max:100', 'items' => 'required|array|min:1', 'items.*.requisition_product_id' => 'required|integer|distinct', 'items.*.quantity_received' => 'required|integer|min:1']);
-        if ($validator->fails()) return $this->respond(false, 'Validation error', $validator->errors(), 422);
         try {
-            $data = $validator->validated();
+            $data = $request->validated();
             $record = $this->service->receive($procurementId, $data['items'], $data['warehouse_location'], $request->user()?->id);
             return $record ? $this->respond(true, 'Stock receipt created and inventory updated successfully.', $record, 201) : $this->respond(false, 'Procurement is not available for receiving.', [], 422);
         } catch (\InvalidArgumentException $e) {

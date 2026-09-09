@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\User\Cart;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CartAddRequest;
+use App\Http\Requests\CartUpdateRequest;
 use App\Repository\Services\User\Cart\CartService;
 use Exception;
 use Illuminate\Http\Request;
@@ -17,10 +19,10 @@ class CartController extends Controller
         $this->cartService = $productService;
     }
 
-    public function addToCart(Request $request)
+    public function addToCart(CartAddRequest $request)
     {
         try {
-            $response = $this->cartService->addToCart($request->all());
+            $response = $this->cartService->addToCart($request->validated());
             return response()->json([
                 'isExecuted' => $response['status'],
                 'message' => $response['message'],
@@ -31,10 +33,10 @@ class CartController extends Controller
         }
     }
 
-    public function updateCart(Request $request)
+    public function updateCart(CartUpdateRequest $request)
     {
         try {
-            $response = $this->cartService->updateCart($request->all());
+            $response = $this->cartService->updateCart($request->validated());
             return response()->json([
                 'isExecuted' => $response['status'],
                 'message' => $response['message'],

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ReturnRequest;
 use App\Repository\Services\Admin\ReturnManagement\ReturnDetailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,12 +56,9 @@ class ReturnController extends Controller
             : $this->respond(false, 'Return not found', [], 404);
     }
 
-    public function store(Request $request)
+    public function store(ReturnRequest $request)
     {
-        $data = $this->validated($request);
-        if ($data instanceof JsonResponse) {
-            return $data;
-        }
+        $data = $request->validated();
         if (! $this->orderContainsProduct($data['order_id'], $data['product_id'])) {
             return $this->respond(false, 'The product does not belong to this order.', [], 422);
         }
@@ -69,16 +67,13 @@ class ReturnController extends Controller
         return $this->respond(true, 'Return requested successfully', DB::table('returns')->find($id), 201);
     }
 
-    public function update(int $id, Request $request)
+    public function update(int $id, ReturnRequest $request)
     {
         $return = DB::table('returns')->where('id', $id)->first();
         if (! $return) {
             return $this->respond(false, 'Return not found', [], 404);
         }
-        $data = $this->validated($request);
-        if ($data instanceof JsonResponse) {
-            return $data;
-        }
+        $data = $request->validated();
         if (! $this->orderContainsProduct($data['order_id'], $data['product_id'])) {
             return $this->respond(false, 'The product does not belong to this order.', [], 422);
         }

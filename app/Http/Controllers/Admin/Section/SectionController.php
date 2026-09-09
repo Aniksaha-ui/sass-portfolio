@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Section;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SectionRequest;
 use App\Repository\Services\Admin\Section\SectionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,21 +23,23 @@ class SectionController extends Controller
         return $this->found($this->sections->find($id));
     }
 
-    public function store(Request $request)
+    public function store(SectionRequest $request)
     {
-        $data = $this->validated($request);
-
-        return $data instanceof JsonResponse ? $data : $this->respond(true, 'Section created successfully', $this->sections->create($data), 201);
+        $data = $request->validated();
+        $data['display_order'] = $data['display_order'] ?? 1;
+        $data['is_active'] = $data['is_active'] ?? true;
+        return $this->respond(true, 'Section created successfully', $this->sections->create($data), 201);
     }
 
-    public function update(int $id, Request $request)
+    public function update(int $id, SectionRequest $request)
     {
         if (! $this->sections->find($id)) {
             return $this->respond(false, 'Section not found', [], 404);
         }
-        $data = $this->validated($request, $id);
-
-        return $data instanceof JsonResponse ? $data : $this->respond(true, 'Section updated successfully', $this->sections->update($id, $data));
+        $data = $request->validated();
+        $data['display_order'] = $data['display_order'] ?? 1;
+        $data['is_active'] = $data['is_active'] ?? true;
+        return $this->respond(true, 'Section updated successfully', $this->sections->update($id, $data));
     }
 
     public function destroy(int $id)

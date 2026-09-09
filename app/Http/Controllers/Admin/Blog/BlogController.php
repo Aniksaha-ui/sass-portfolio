@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Blog;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BlogRequest;
 use App\Repository\Services\Admin\Blog\BlogService;
 use Illuminate\Http\Request;
 use Exception;
@@ -35,11 +36,11 @@ class BlogController extends Controller
         }
     }
 
-    public function addNewBlog(Request $request)
+    public function addNewBlog(BlogRequest $request)
     {
         try {
 
-            $insertedBlogInformation = $this->blogService->store($request->all());
+            $insertedBlogInformation = $this->blogService->store($request->validated());
             return response()->json([
                 "isExecuted" => $insertedBlogInformation['status'],
                 "message" => $insertedBlogInformation['message'],
@@ -64,10 +65,10 @@ class BlogController extends Controller
         }
     }
 
-    public function updateBlog($id, Request $request)
+    public function updateBlog($id, BlogRequest $request)
     {
         try {
-            $response = $this->blogService->updateBlog($id, $request->all());
+            $response = $this->blogService->updateBlog($id, $request->validated());
             return response()->json([
                 "isExecuted" => $response['status'],
                 "message" => $response['message'],

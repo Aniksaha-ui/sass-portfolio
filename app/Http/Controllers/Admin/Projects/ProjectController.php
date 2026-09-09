@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Projects;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProjectRequest;
 use App\Repository\Services\Admin\Projects\ProjectService;
 use Illuminate\Http\Request;
 use Exception;
@@ -35,11 +36,11 @@ class ProjectController extends Controller
         }
     }
 
-    public function addNewProject(Request $request)
+    public function addNewProject(ProjectRequest $request)
     {
         try {
 
-            $insertedProjectInformation = $this->projectService->store($request->all());
+            $insertedProjectInformation = $this->projectService->store($request->validated());
             return response()->json([
                 "isExecuted" => $insertedProjectInformation['status'],
                 "message" => $insertedProjectInformation['message'],
@@ -64,10 +65,10 @@ class ProjectController extends Controller
         }
     }
 
-    public function updateProject($id, Request $request)
+    public function updateProject($id, ProjectRequest $request)
     {
         try {
-            $response = $this->projectService->updateProject($id, $request->all());
+            $response = $this->projectService->updateProject($id, $request->validated());
             return response()->json([
                 "isExecuted" => $response['status'],
                 "message" => $response['message'],

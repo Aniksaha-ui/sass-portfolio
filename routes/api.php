@@ -25,6 +25,8 @@ use App\Http\Controllers\User\Order\OrderController;
 use App\Http\Controllers\User\Products\ProductController;
 use Illuminate\Support\Facades\Route;
 
+Route::pattern('id', '[0-9]+');
+
 /** login and registation routes **/
 Route::post('/login', [AuthController::class, 'login']);
 

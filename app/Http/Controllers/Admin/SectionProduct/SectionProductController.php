@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\SectionProduct;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SectionProductRequest;
 use App\Repository\Services\Admin\SectionProduct\SectionProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,21 +28,23 @@ class SectionProductController extends Controller
         return $this->found($this->sectionProducts->find($id));
     }
 
-    public function store(Request $request)
+    public function store(SectionProductRequest $request)
     {
-        $data = $this->validated($request);
-
-        return $data instanceof JsonResponse ? $data : $this->respond(true, 'Product added to section successfully', $this->sectionProducts->create($data), 201);
+        $data = $request->validated();
+        $data['bundle_id'] = $data['bundle_id'] ?? null;
+        $data['display_order'] = $data['display_order'] ?? 1;
+        return $this->respond(true, 'Product added to section successfully', $this->sectionProducts->create($data), 201);
     }
 
-    public function update(int $id, Request $request)
+    public function update(int $id, SectionProductRequest $request)
     {
         if (! $this->sectionProducts->find($id)) {
             return $this->respond(false, 'Section product not found', [], 404);
         }
-        $data = $this->validated($request, $id);
-
-        return $data instanceof JsonResponse ? $data : $this->respond(true, 'Section product updated successfully', $this->sectionProducts->update($id, $data));
+        $data = $request->validated();
+        $data['bundle_id'] = $data['bundle_id'] ?? null;
+        $data['display_order'] = $data['display_order'] ?? 1;
+        return $this->respond(true, 'Section product updated successfully', $this->sectionProducts->update($id, $data));
     }
 
     public function destroy(int $id)

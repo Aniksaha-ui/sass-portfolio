@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Order;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\OrderTrackingRequest;
 use App\Repository\Services\Admin\Order\AdminOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -23,13 +24,9 @@ class AdminOrderController extends Controller
         return $order ? $this->respond(true, 'Order fetched successfully', $order) : $this->respond(false, 'Order not found.', [], 404);
     }
 
-    public function updateTracking($id, Request $request)
+    public function updateTracking($id, OrderTrackingRequest $request)
     {
-        $validator = Validator::make($request->all(), ['status' => 'required|in:pending,processing,shipped,delivered,cancelled', 'location' => 'nullable|string|max:255']);
-        if ($validator->fails()) {
-            return $this->respond(false, 'Validation error', $validator->errors(), 422);
-        }
-        $order = $this->orders->updateTracking((int) $id, $validator->validated());
+        $order = $this->orders->updateTracking((int) $id, $request->validated());
 
         return $order ? $this->respond(true, 'Order tracking updated successfully.', $order) : $this->respond(false, 'Order not found.', [], 404);
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Coupon;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CouponRequest;
 use App\Repository\Services\Admin\Coupon\CouponService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -29,17 +30,21 @@ class CouponController extends Controller
         return $coupon ? $this->respond(true, 'Coupon fetched successfully', $coupon) : $this->respond(false, 'Coupon not found', [], 404);
     }
 
-    public function store(Request $request)
+    public function store(CouponRequest $request)
     {
-        $data = $this->validated($request);
-        return $data instanceof \Illuminate\Http\JsonResponse ? $data : $this->respond(true, 'Coupon created successfully', $this->coupons->create($data), 201);
+        $data = $request->validated();
+        $data['code'] = strtoupper(trim($data['code']));
+        $data['max_usage'] = $data['max_usage'] ?? 0;
+        return $this->respond(true, 'Coupon created successfully', $this->coupons->create($data), 201);
     }
 
-    public function update($id, Request $request)
+    public function update($id, CouponRequest $request)
     {
         if (!$this->coupons->find($id)) return $this->respond(false, 'Coupon not found', [], 404);
-        $data = $this->validated($request, $id);
-        return $data instanceof \Illuminate\Http\JsonResponse ? $data : $this->respond(true, 'Coupon updated successfully', $this->coupons->update($id, $data));
+        $data = $request->validated();
+        $data['code'] = strtoupper(trim($data['code']));
+        $data['max_usage'] = $data['max_usage'] ?? 0;
+        return $this->respond(true, 'Coupon updated successfully', $this->coupons->update($id, $data));
     }
 
     public function destroy($id)

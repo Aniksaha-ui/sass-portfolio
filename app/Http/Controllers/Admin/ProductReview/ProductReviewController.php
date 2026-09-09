@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\ProductReview;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProductReviewRequest;
 use App\Repository\Services\Admin\ProductReview\ProductReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,18 +28,18 @@ class ProductReviewController extends Controller
         return $this->found($this->reviews->find($id));
     }
 
-    public function store(Request $request)
+    public function store(ProductReviewRequest $request)
     {
-        $data = $this->validated($request);
+        $data = $request->validated();
 
         return $data instanceof JsonResponse ? $data : $this->respond(true, 'Product review created successfully', $this->reviews->create($data), 201);
     }
 
-    public function update(int $id, Request $request)
+    public function update(int $id, ProductReviewRequest $request)
     {
         if (! $this->reviews->find($id)) {
             return $this->respond(false, 'Product review not found', [], 404);
-        } $data = $this->validated($request);
+        } $data = $request->validated();
 
         return $data instanceof JsonResponse ? $data : $this->respond(true, 'Product review updated successfully', $this->reviews->update($id, $data));
     }

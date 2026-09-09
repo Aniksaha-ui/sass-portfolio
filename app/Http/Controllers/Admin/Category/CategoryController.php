@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Category;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CategoryRequest;
 use App\Repository\Services\Admin\Category\CategoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -25,12 +26,9 @@ class CategoryController extends Controller
         return $this->respond(true, 'Categories fetched successfully', $categories);
     }
 
-    public function store(Request $request)
+    public function store(CategoryRequest $request)
     {
-        $data = $this->validateCategory($request);
-        if ($data instanceof \Illuminate\Http\JsonResponse) return $data;
-
-        return $this->respond(true, 'Category created successfully', $this->categoryService->create($data), 201);
+        return $this->respond(true, 'Category created successfully', $this->categoryService->create($request->validated()), 201);
     }
 
     public function show($id)
@@ -41,13 +39,10 @@ class CategoryController extends Controller
         return $this->respond(true, 'Category fetched successfully', $category);
     }
 
-    public function update($id, Request $request)
+    public function update($id, CategoryRequest $request)
     {
         if (!$this->categoryService->find($id)) return $this->respond(false, 'Category not found', [], 404);
-        $data = $this->validateCategory($request, $id);
-        if ($data instanceof \Illuminate\Http\JsonResponse) return $data;
-
-        return $this->respond(true, 'Category updated successfully', $this->categoryService->update($id, $data));
+        return $this->respond(true, 'Category updated successfully', $this->categoryService->update($id, $request->validated()));
     }
 
     public function destroy($id)

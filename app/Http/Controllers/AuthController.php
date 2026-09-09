@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
@@ -13,17 +13,11 @@ class AuthController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
 
-        // Validate the request
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
         // Attempt to authenticate the user
-        $credentials = $request->only('email', 'password');
+        $credentials = $request->validated();
 
         if (!Auth::attempt($credentials)) {
             return response()->json(['code' => 401, 'message' => 'Unauthorized'], 401);

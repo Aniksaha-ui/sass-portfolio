@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\ProcurementPayment;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProcurementPaymentRequest;
 use App\Repository\Services\Admin\ProcurementPayment\ProcurementPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,21 +28,17 @@ class ProcurementPaymentController extends Controller
         return $this->found($this->payments->find($id));
     }
 
-    public function store(Request $r)
+    public function store(ProcurementPaymentRequest $r)
     {
-        $d = $this->valid($r);
-
-        return $d instanceof JsonResponse ? $d : response()->json(['isExecuted' => true, 'message' => 'Payment created successfully', 'data' => $this->payments->create($d)], 201);
+        return response()->json(['isExecuted' => true, 'message' => 'Payment created successfully', 'data' => $this->payments->create($r->validated())], 201);
     }
 
-    public function update($id, Request $r)
+    public function update($id, ProcurementPaymentRequest $r)
     {
         if (! $this->payments->find($id)) {
             return $this->no();
         }
-        $d = $this->valid($r, $id);
-
-        return $d instanceof JsonResponse ? $d : $this->ok('Payment updated successfully', $this->payments->update($id, $d));
+        return $this->ok('Payment updated successfully', $this->payments->update($id, $r->validated()));
     }
 
     public function destroy($id)

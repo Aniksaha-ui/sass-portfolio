@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CompanyAccountRequest;
 use App\Repository\Services\Admin\Finance\FinanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,21 +37,17 @@ class FinanceController extends Controller
         return $account ? $this->respond('Account fetched successfully.', $account) : $this->notFound('Account');
     }
 
-    public function storeAccount(Request $request)
+    public function storeAccount(CompanyAccountRequest $request)
     {
-        $data = $this->validatedAccount($request);
-
-        return $data instanceof JsonResponse ? $data : response()->json(['isExecuted' => true, 'message' => 'Account created successfully.', 'data' => $this->finance->createAccount($data)], 201);
+        return response()->json(['isExecuted' => true, 'message' => 'Account created successfully.', 'data' => $this->finance->createAccount($request->validated())], 201);
     }
 
-    public function updateAccount($id, Request $request)
+    public function updateAccount($id, CompanyAccountRequest $request)
     {
         if (! $this->finance->account((int) $id)) {
             return $this->notFound('Account');
         }
-        $data = $this->validatedAccount($request);
-
-        return $data instanceof JsonResponse ? $data : $this->respond('Account updated successfully.', $this->finance->updateAccount((int) $id, $data));
+        return $this->respond('Account updated successfully.', $this->finance->updateAccount((int) $id, $request->validated()));
     }
 
     public function deleteAccount($id)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User\Address;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AddressRequest;
 use App\Repository\Services\User\Address\AddressService;
 use Exception;
 use Illuminate\Http\Request;
@@ -32,21 +33,10 @@ class AddressController extends Controller
         }
     }
 
-    public function store(Request $request)
+    public function store(AddressRequest $request)
     {
-        $request->validate([
-            'address_line1' => 'required|string|max:255',
-            'address_line2' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'country' => 'nullable|string|max:50',
-            'phone' => 'nullable|string|max:20',
-            'is_primary' => 'nullable|boolean',
-        ]);
-
         try {
-            $response = $this->addressService->storeAddress($request->all());
+            $response = $this->addressService->storeAddress($request->validated());
 
             return response()->json([
                 'isExecuted' => $response['status'],
