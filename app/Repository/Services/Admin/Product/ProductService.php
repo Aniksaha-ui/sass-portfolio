@@ -3,6 +3,7 @@
 namespace App\Repository\Services\Admin\Product;
 
 use App\Helpers\admin\FileManageHelper;
+use App\Support\OperationsConstants;
 use Illuminate\Support\Facades\DB;
 
 class ProductService
@@ -34,6 +35,7 @@ class ProductService
             'categories' => DB::table('categories')->orderBy('name')->get(['id', 'name']),
             'subcategories' => DB::table('subcategories')->orderBy('name')->get(['id', 'category_id', 'name']),
             'sections' => DB::table('sections')->where('is_active', 1)->orderBy('display_order')->get(['id', 'name']),
+            'warehouses' => OperationsConstants::WAREHOUSES,
         ];
     }
 

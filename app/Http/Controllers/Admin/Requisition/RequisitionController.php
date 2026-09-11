@@ -26,7 +26,9 @@ class RequisitionController extends Controller
     }
     public function store(RequisitionRequest $request)
     {
-        return $this->respond(true, 'Requisition created successfully', $this->service->create($request->validated()), 201);
+        $data = $request->validated();
+        $data['requested_by'] = $request->user()->name;
+        return $this->respond(true, 'Requisition created successfully', $this->service->create($data), 201);
     }
     public function showRequisition($id)
     {

@@ -95,7 +95,9 @@ class CommonLogger
         return [
             'request_method' => $request->method(),
             'request_path' => $request->path(),
-            'trace_id' => $request->header('X-Trace-Id'),
+            // The middleware generates and stores the canonical per-request ID
+            // as an attribute. The request header is only a compatibility fallback.
+            'trace_id' => $request->attributes->get('trace_id') ?: $request->header('X-Trace-Id'),
         ];
     }
 

@@ -4,6 +4,7 @@ namespace App\Repository\Services\Admin\Requisition;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Support\OperationsConstants;
 
 class RequisitionService
 {
@@ -12,7 +13,7 @@ class RequisitionService
         $balanceColumn = Schema::hasColumn('company_accounts', 'amount') ? 'amount' : (Schema::hasColumn('company_accounts', 'balance') ? 'balance' : null);
         $accounts = DB::table('company_accounts')->orderBy('account_name')->select(['id', 'account_name', 'account_number', 'type']);
         $accounts->selectRaw($balanceColumn ? "{$balanceColumn} as balance" : '0 as balance');
-        return ['products' => DB::table('products')->orderBy('name')->get(['id', 'name', 'sku']), 'warehouses' => DB::table('inventory')->whereNotNull('warehouse_location')->where('warehouse_location', '!=', '')->distinct()->orderBy('warehouse_location')->pluck('warehouse_location')->values(), 'company_accounts' => $accounts->get()];
+        return ['products' => DB::table('products')->orderBy('name')->get(['id', 'name', 'sku']), 'departments' => OperationsConstants::DEPARTMENTS, 'warehouses' => OperationsConstants::WAREHOUSES, 'company_accounts' => $accounts->get()];
     }
     public function requisitions($perPage, $page, $search)
     {
@@ -32,7 +33,20 @@ class RequisitionService
     }
     public function requisitionDetail($id)
     {
-        $record = DB::table('requisitions as r')->leftJoin('procurements as p', 'p.requisition_id', '=', 'r.id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')->where('r.id', $id)->first(['r.*', 'p.id as procurement_id', 'p.procurement_number', 'p.status as procurement_status', 'p.received_at as procurement_received_at', 'approver.name as approved_by_name']);
+        $record = DB::table('requisitions as r')
+            ->leftJoin('procurements as p', 'p.requisition_id', '=', 'r.id')
+            ->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')
+            ->where('r.id', $id)
+            ->first([
+                'r.id', 'r.requisition_number', 'r.requested_by', 'r.department',
+                'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no',
+                'r.notes', 'r.status', 'r.accepted_at', 'r.accepted_by',
+                'r.created_at', 'r.updated_at',
+                'p.id as procurement_id', 'p.procurement_number',
+                'p.status as procurement_status', 'p.created_at as procurement_created_at',
+                'p.received_at as procurement_received_at', 'p.paid_at as procurement_paid_at',
+                'approver.name as approved_by_name',
+            ]);
         if ($record) $record->items = $this->requisitionItems($id);
         return $record;
     }
@@ -56,7 +70,7 @@ class RequisitionService
     }
     public function procurementDetail($id)
     {
-        $record = DB::table('procurements as p')->join('requisitions as r', 'r.id', '=', 'p.requisition_id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')->leftJoin('users as receiver', 'receiver.id', '=', 'p.received_by')->where('p.id', $id)->first(['p.id', 'p.procurement_number', 'p.status as procurement_status', 'p.created_at as procurement_created_at', 'p.received_at', 'p.paid_at', 'p.payment_amount', 'p.payment_reference', 'r.*', 'approver.name as approved_by_name', 'receiver.name as received_by_name']);
+        $record = DB::table('procurements as p')->join('requisitions as r', 'r.id', '=', 'p.requisition_id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')->leftJoin('users as receiver', 'receiver.id', '=', 'p.received_by')->where('p.id', $id)->first(['p.id as procurement_id', 'p.procurement_number', 'p.status as procurement_status', 'p.created_at as procurement_created_at', 'p.received_at', 'p.paid_at', 'p.payment_amount', 'p.payment_reference', 'r.*', 'approver.name as approved_by_name', 'receiver.name as received_by_name']);
         if ($record) $record->items = $this->procurementItems($id);
         return $record;
     }
@@ -143,7 +157,7 @@ class RequisitionService
     }
     public function stockOptions()
     {
-        return ['products' => DB::table('products')->orderBy('name')->get(['id', 'name', 'sku']), 'warehouses' => DB::table('inventory')->whereNotNull('warehouse_location')->where('warehouse_location', '!=', '')->distinct()->orderBy('warehouse_location')->pluck('warehouse_location')->values()];
+        return ['products' => DB::table('products')->orderBy('name')->get(['id', 'name', 'sku']), 'warehouses' => OperationsConstants::WAREHOUSES];
     }
     public function productStocks($perPage, $page, $search)
     {
