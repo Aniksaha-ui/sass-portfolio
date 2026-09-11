@@ -15,8 +15,7 @@
         "laravel/framework": "^7.29",
         "laravel/sanctum": "^2.15",
         "laravel/tinker": "^2.5",
-        "rap2hpoutre/laravel-log-viewer": "^2.5",
-        "twilio/sdk": "^8.5"
+        "rap2hpoutre/laravel-log-viewer": "^2.5"
     },
     "require-dev": {
         "facade/ignition": "^2.0",
