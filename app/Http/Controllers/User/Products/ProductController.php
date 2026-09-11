@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Repository\Services\User\Products\ProductService;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller

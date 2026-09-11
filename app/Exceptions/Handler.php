@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Helpers\CommonLogger;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
 
@@ -36,7 +37,9 @@ class Handler extends ExceptionHandler
      */
     public function report(Throwable $exception)
     {
-        parent::report($exception);
+        if ($this->shouldReport($exception)) {
+            CommonLogger::exception($exception);
+        }
     }
 
     /**

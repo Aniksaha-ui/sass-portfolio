@@ -7,7 +7,7 @@ use App\Http\Requests\OrderRequest;
 use App\Repository\Services\User\Order\OrderService;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 
 class OrderController extends Controller
 {

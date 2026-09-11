@@ -7,7 +7,7 @@ use App\Http\Requests\UserRequest;
 use App\Repository\Services\Admin\Users\UsersService;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 
 class UserController extends Controller
 {

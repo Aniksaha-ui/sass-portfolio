@@ -8,7 +8,7 @@ use App\Http\Requests\CartUpdateRequest;
 use App\Repository\Services\User\Cart\CartService;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 
 class CartController extends Controller
 {

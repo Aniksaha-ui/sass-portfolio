@@ -6,7 +6,7 @@ use App\Constants\ResponseConstants;
 use App\Helpers\admin\FileManageHelper;
 use App\Repository\Services\Common\CommonService;
 use Exception;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 use DB;
 
 

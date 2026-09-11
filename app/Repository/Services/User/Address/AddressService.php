@@ -7,7 +7,7 @@ use App\Repository\Services\Common\CommonService;
 use DB;
 use Exception;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 
 class AddressService
 {

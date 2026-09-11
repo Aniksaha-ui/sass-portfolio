@@ -7,7 +7,7 @@ use App\Http\Requests\AddressRequest;
 use App\Repository\Services\User\Address\AddressService;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 
 class AddressController extends Controller
 {

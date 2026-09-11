@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Repository\Services\Admin\Blog\BlogService;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\CommonLogger as Log;
 
 class UserBlogController extends Controller
 {
