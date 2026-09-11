@@ -9,10 +9,14 @@ class ProductService
 {
     public function paginate($perPage, $page, $search)
     {
+        $inventoryTotals = DB::table('inventory')
+            ->select('product_id', DB::raw('COALESCE(SUM(stock_quantity), 0) as stock_quantity'))
+            ->groupBy('product_id');
+
         return DB::table('products as p')
             ->join('subcategories as sc', 'sc.id', '=', 'p.subcategory_id')
             ->join('categories as c', 'c.id', '=', 'sc.category_id')
-            ->leftJoin('inventory as i', 'i.product_id', '=', 'p.id')
+            ->leftJoinSub($inventoryTotals, 'i', fn ($join) => $join->on('i.product_id', '=', 'p.id'))
             ->select('p.id', 'p.name', 'p.sku', 'p.price', 'p.is_active', 'p.updated_at', 'c.name as category_name', 'sc.name as subcategory_name', 'i.stock_quantity')
             ->where(function ($query) use ($search) {
                 $query->where('p.name', 'like', '%' . $search . '%')
@@ -39,15 +43,33 @@ class ProductService
             ->select('p.*', 'sc.category_id')->where('p.id', $id)->first();
         if (!$product) return null;
 
-        $product->inventory = DB::table('inventory')->where('product_id', $id)->first(['stock_quantity', 'warehouse_location']);
+        $product->stock_breakdown = DB::table('inventory')
+            ->where('product_id', $id)
+            ->orderBy('warehouse_location')
+            ->orderBy('id')
+            ->get(['id', 'warehouse_location', 'stock_quantity']);
+        $receipts = DB::table('stock_receipts as sr')
+            ->join('procurements as procurement', 'procurement.id', '=', 'sr.procurement_id')
+            ->join('requisitions as requisition', 'requisition.id', '=', 'procurement.requisition_id')
+            ->leftJoin('users as receiver', 'receiver.id', '=', 'sr.received_by')
+            ->where('sr.product_id', $id)
+            ->select('sr.id', 'requisition.requisition_number', 'procurement.procurement_number', 'sr.warehouse_location')
+            ->selectRaw("'Stock receipt' as transaction_type, sr.quantity_received as quantity_change, sr.stock_after, sr.received_at as transaction_date, receiver.name as performed_by, NULL as reason");
+        $adjustments = DB::table('inventory_adjustments as adjustment')
+            ->leftJoin('users as adjuster', 'adjuster.id', '=', 'adjustment.adjusted_by')
+            ->where('adjustment.product_id', $id)
+            ->select('adjustment.id')
+            ->selectRaw("NULL as requisition_number, NULL as procurement_number, adjustment.warehouse_location, 'Stock adjustment' as transaction_type, adjustment.adjustment_quantity as quantity_change, adjustment.new_quantity as stock_after, adjustment.created_at as transaction_date, adjuster.name as performed_by, adjustment.reason");
+        $product->stock_history = DB::query()->fromSub($receipts->unionAll($adjustments), 'stock_history')
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
+            ->get();
         $product->images = DB::table('product_images')->where('product_id', $id)->orderByDesc('is_primary')->orderBy('id')->get(['id', 'image_url', 'is_primary']);
         $product->discount = DB::table('product_discounts')->where('product_id', $id)->orderByDesc('id')->first(['discount_type', 'discount_value', 'start_date', 'end_date']);
         $sections = DB::table('section_products')->where('product_id', $id)->orderBy('display_order')->orderBy('id')->get(['section_id', 'display_order']);
         $product->section_ids = $sections->pluck('section_id')->values();
         $product->display_order = $sections->first() ? $sections->first()->display_order : 1;
-        $product->stock_quantity = $product->inventory ? $product->inventory->stock_quantity : 0;
-        $product->warehouse_location = $product->inventory ? $product->inventory->warehouse_location : null;
-        unset($product->inventory);
+        $product->stock_quantity = $product->stock_breakdown->sum('stock_quantity');
         return $product;
     }
 
@@ -69,16 +91,19 @@ class ProductService
                 $productId = DB::table('products')->insertGetId($productData);
             }
 
-            DB::table('inventory')->where('product_id', $productId)->delete();
-            DB::table('inventory')->insert(['product_id' => $productId, 'stock_quantity' => $data['stock_quantity'], 'warehouse_location' => $data['warehouse_location'] ?? null]);
+            if (!$id) {
+                DB::table('inventory')->insert(['product_id' => $productId, 'stock_quantity' => $data['stock_quantity'], 'warehouse_location' => $data['warehouse_location'] ?? null]);
+            }
             if (!empty($data['images'])) {
-                $oldImages = DB::table('product_images')->where('product_id', $productId)->pluck('image_url');
-                DB::table('product_images')->where('product_id', $productId)->delete();
+                $hasImages = DB::table('product_images')->where('product_id', $productId)->exists();
                 foreach ($data['images'] as $index => $image) {
                     $path = FileManageHelper::uploadFile('products', $image);
-                    DB::table('product_images')->insert(['product_id' => $productId, 'image_url' => $path, 'is_primary' => $index === 0]);
+                    DB::table('product_images')->insert([
+                        'product_id' => $productId,
+                        'image_url' => $path,
+                        'is_primary' => !$hasImages && $index === 0,
+                    ]);
                 }
-                foreach ($oldImages as $path) FileManageHelper::deleteFile($path);
             }
             DB::table('product_discounts')->where('product_id', $productId)->delete();
             if (!empty($data['discount_type'])) DB::table('product_discounts')->insert(['product_id' => $productId, 'discount_type' => $data['discount_type'], 'discount_value' => $data['discount_value'], 'start_date' => $data['discount_start_date'] ?: null, 'end_date' => $data['discount_end_date'] ?: null]);
