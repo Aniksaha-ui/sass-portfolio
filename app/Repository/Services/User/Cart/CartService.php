@@ -255,60 +255,68 @@ class CartService
     {
         try {
             $cartProducts = $this->myCart();
-            if ($cartProducts['status'] == ResponseConstants::SUCCESS && $cartProducts['data']->count() > 0) {
-                $totalAmount = 0;
-                foreach ($cartProducts['data'] as $item) {
-                    $totalAmount += $item->price * $item->quantity;
-                }
-
-                $coupon = DB::table('coupons')->where('code', $couponId)->first();
-
-                if (!$coupon) {
-                    return [
-                        'status' => ResponseConstants::SUCCESS,
-                        'message' => 'Coupon not found',
-                        'data' => [],
-                    ];
-                }
-
-                $today = now()->toDateString();
-                if (($coupon->start_date && $coupon->start_date > $today) || ($coupon->end_date && $coupon->end_date < $today)) {
-                    return [
-                        'status' => ResponseConstants::SUCCESS,
-                        'message' => 'Coupon is not currently valid',
-                        'data' => [],
-                    ];
-                }
-
-                if ($coupon->discount_value > $totalAmount) {
-                    return [
-                        'status' => ResponseConstants::SUCCESS,
-                        'message' => 'Coupon amount is greater than total amount',
-                        'data' => [
-                            'totalAmount' => $totalAmount,
-                            'couponAmount' => 0,
-                            'grandTotal' => $totalAmount,
-                        ],
-                    ];
-                }
-
-                $discountType = $coupon->discount_type;
-                if ($discountType == CouponTypeConstant::PERCENTAGE) {
-                    $couponAmount = $totalAmount * $coupon->discount_value / 100;
-                } else {
-                    $couponAmount = $coupon->discount_value;
-                }
-
+            if ($cartProducts['status'] !== ResponseConstants::SUCCESS || $cartProducts['data']->count() === 0) {
                 return [
-                    'status' => ResponseConstants::SUCCESS,
-                    'message' => 'Coupon applied successfully',
-                    'data' => [
-                        'totalAmount' => $totalAmount,
-                        'couponAmount' => $couponAmount,
-                        'grandTotal' => $totalAmount - $couponAmount,
-                    ],
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Add an item to your cart before applying a coupon.',
+                    'data' => ['totalAmount' => 0, 'couponAmount' => 0, 'grandTotal' => 0],
                 ];
             }
+
+            $totalAmount = 0;
+            foreach ($cartProducts['data'] as $item) {
+                $totalAmount += $item->price * $item->quantity;
+            }
+
+            $couponCode = trim((string) $couponId);
+            $coupon = DB::table('coupons')
+                ->whereRaw('LOWER(code) = ?', [strtolower($couponCode)])
+                ->first();
+
+            if (!$coupon) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Coupon not found.',
+                    'data' => ['totalAmount' => $totalAmount, 'couponAmount' => 0, 'grandTotal' => $totalAmount],
+                ];
+            }
+
+            $today = now()->toDateString();
+            if (($coupon->start_date && $coupon->start_date > $today) || ($coupon->end_date && $coupon->end_date < $today)) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'Coupon is not currently valid.',
+                    'data' => ['totalAmount' => $totalAmount, 'couponAmount' => 0, 'grandTotal' => $totalAmount],
+                ];
+            }
+
+            if ($coupon->discount_type !== CouponTypeConstant::PERCENTAGE && $coupon->discount_value > $totalAmount) {
+                return [
+                    'status' => ResponseConstants::FAILED,
+                    'message' => 'This coupon amount is greater than the cart total.',
+                    'data' => ['totalAmount' => $totalAmount, 'couponAmount' => 0, 'grandTotal' => $totalAmount],
+                ];
+            }
+
+            if ($coupon->discount_type === CouponTypeConstant::PERCENTAGE) {
+                $couponAmount = $totalAmount * $coupon->discount_value / 100;
+            } else {
+                $couponAmount = $coupon->discount_value;
+            }
+
+            $couponAmount = min(round((float) $couponAmount, 2), $totalAmount);
+
+            return [
+                'status' => ResponseConstants::SUCCESS,
+                'message' => 'Coupon applied successfully.',
+                'data' => [
+                    'code' => $coupon->code,
+                    'discountType' => $coupon->discount_type,
+                    'totalAmount' => $totalAmount,
+                    'couponAmount' => $couponAmount,
+                    'grandTotal' => round($totalAmount - $couponAmount, 2),
+                ],
+            ];
         } catch (Exception $ex) {
             Log::error('CartService : applyCoupon function error: ' . $ex->getMessage());
             return $this->commonService->internalServerErrorResponse(false, 'Internal Server Error. Please Contact Admin', []);

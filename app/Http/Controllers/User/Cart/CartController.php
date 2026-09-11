@@ -86,7 +86,12 @@ class CartController extends Controller
                 'data' => $response['data'],
             ], 200);
         } catch (Exception $ex) {
-            Log::info('applyCoupon function error: ' . $ex->getMessage());
+            Log::exception($ex);
+            return response()->json([
+                'isExecuted' => false,
+                'message' => 'Unable to apply coupon. Please try again.',
+                'data' => [],
+            ], 500);
         }
     }
 }
