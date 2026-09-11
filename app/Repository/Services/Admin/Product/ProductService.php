@@ -73,6 +73,44 @@ class ProductService
         return $product;
     }
 
+    public function report($id)
+    {
+        $product = DB::table('products')->where('id', $id)->first(['id', 'name', 'sku', 'price']);
+        if (!$product) return null;
+
+        $sales = DB::table('order_items as item')
+            ->join('orders as order', 'order.id', '=', 'item.order_id')
+            ->where('item.product_id', $id)
+            ->whereIn('order.status', ['processing', 'shipped', 'delivered'])
+            ->selectRaw('COALESCE(SUM(item.quantity), 0) as units_sold, COALESCE(SUM(item.quantity * item.price), 0) as sales_amount, COUNT(DISTINCT order.id) as orders_count')
+            ->first();
+        $costs = DB::table('stock_receipts as receipt')
+            ->join('requisition_products as line', 'line.id', '=', 'receipt.requisition_product_id')
+            ->where('receipt.product_id', $id)
+            ->selectRaw('COALESCE(SUM(receipt.quantity_received), 0) as units_received, COALESCE(SUM(receipt.quantity_received * line.unit_cost), 0) as total_cost')
+            ->first();
+        $averageUnitCost = (int) $costs->units_received > 0 ? (float) $costs->total_cost / (int) $costs->units_received : 0;
+        $costOfSold = (float) $sales->units_sold * $averageUnitCost;
+
+        return [
+            'product' => $product,
+            'summary' => [
+                'units_sold' => (int) $sales->units_sold,
+                'sales_amount' => round((float) $sales->sales_amount, 2),
+                'orders_count' => (int) $sales->orders_count,
+                'average_unit_cost' => round($averageUnitCost, 2),
+                'cost_of_sold' => round($costOfSold, 2),
+                'profit' => round((float) $sales->sales_amount - $costOfSold, 2),
+            ],
+            'requisitions' => DB::table('requisition_products as line')
+                ->join('requisitions as requisition', 'requisition.id', '=', 'line.requisition_id')
+                ->leftJoin('procurements as procurement', 'procurement.requisition_id', '=', 'requisition.id')
+                ->where('line.product_id', $id)
+                ->orderByDesc('requisition.id')
+                ->get(['requisition.requisition_number', 'requisition.status as requisition_status', 'requisition.requested_by', 'requisition.supplier_name', 'requisition.reference_no', 'requisition.created_at as requisition_date', 'procurement.procurement_number', 'procurement.status as procurement_status', 'line.quantity as requested_quantity', 'line.quantity_received', 'line.unit_cost']),
+        ];
+    }
+
     public function save(array $data, $id = null)
     {
         return DB::transaction(function () use ($data, $id) {

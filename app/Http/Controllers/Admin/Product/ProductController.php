@@ -28,6 +28,11 @@ class ProductController extends Controller
         $product = $this->products->find($id);
         return $product ? $this->respond(true, 'Product fetched successfully', $product) : $this->respond(false, 'Product not found', [], 404);
     }
+    public function report($id)
+    {
+        $report = $this->products->report($id);
+        return $report ? $this->respond(true, 'Product report fetched successfully', $report) : $this->respond(false, 'Product not found', [], 404);
+    }
     public function store(ProductRequest $request)
     {
         $data = $this->validated($request);

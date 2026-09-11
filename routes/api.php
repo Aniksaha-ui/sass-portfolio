@@ -80,6 +80,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/products/options', [AdminProductController::class, 'options']);
     Route::get('admin/products', [AdminProductController::class, 'index']);
     Route::post('admin/products', [AdminProductController::class, 'store']);
+    Route::get('admin/products/{id}/report', [AdminProductController::class, 'report']);
     Route::get('admin/products/{id}', [AdminProductController::class, 'show']);
     Route::match(['put', 'patch', 'post'], 'admin/products/{id}', [AdminProductController::class, 'update']);
     Route::delete('admin/products/{id}', [AdminProductController::class, 'destroy']);
@@ -121,8 +122,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/requisitions/options', [RequisitionController::class, 'options']);
     Route::get('admin/requisitions', [RequisitionController::class, 'index']);
     Route::post('admin/requisitions', [RequisitionController::class, 'store']);
+    Route::get('admin/requisitions/{id}', [RequisitionController::class, 'showRequisition']);
     Route::post('admin/requisitions/{id}/accept', [RequisitionController::class, 'accept']);
     Route::get('admin/procurements', [RequisitionController::class, 'procurements']);
+    Route::get('admin/procurements/{id}', [RequisitionController::class, 'showProcurement']);
     Route::post('admin/procurements/{id}/receive', [RequisitionController::class, 'receive']);
     Route::post('admin/procurements/{id}/on-hand', [RequisitionController::class, 'markOnHand']);
     Route::get('admin/stock-receipts', [RequisitionController::class, 'stocks']);

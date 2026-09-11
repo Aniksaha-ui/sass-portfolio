@@ -18,7 +18,7 @@ class RequisitionService
     {
         $rows = DB::table('requisitions as r')->leftJoin('requisition_products as rp', 'rp.requisition_id', '=', 'r.id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')
             ->select('r.id', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.status', 'r.created_at', 'r.accepted_at', 'approver.name as approved_by_name', DB::raw('count(rp.id) as items_count'), DB::raw('coalesce(sum(rp.quantity * rp.unit_cost), 0) as total_amount'))
-            ->where(fn($q) => $q->where('r.requisition_number', 'like', "%{$search}%")->orWhere('r.requested_by', 'like', "%{$search}%"))->groupBy('r.id', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.status', 'r.created_at', 'r.accepted_at', 'approver.name')->orderByDesc('r.id')->paginate($perPage, ['*'], 'page', $page);
+            ->where(fn($q) => $q->where('r.requisition_number', 'like', "%{$search}%")->orWhere('r.requested_by', 'like', "%{$search}%")->orWhere('r.supplier_name', 'like', "%{$search}%")->orWhere('r.reference_no', 'like', "%{$search}%")->orWhere('r.department', 'like', "%{$search}%")->orWhere('r.status', 'like', "%{$search}%"))->groupBy('r.id', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.status', 'r.created_at', 'r.accepted_at', 'approver.name')->orderByDesc('r.id')->paginate($perPage, ['*'], 'page', $page);
         foreach ($rows as $row) $row->items = $this->requisitionItems($row->id);
         return $rows;
     }
@@ -29,6 +29,12 @@ class RequisitionService
             foreach ($data['items'] as $item) DB::table('requisition_products')->insert(['requisition_id' => $id, 'product_id' => $item['product_id'], 'quantity' => $item['quantity'], 'unit_cost' => $item['unit_cost'] ?? 0, 'created_at' => now(), 'updated_at' => now()]);
             return $this->requisition($id);
         });
+    }
+    public function requisitionDetail($id)
+    {
+        $record = DB::table('requisitions as r')->leftJoin('procurements as p', 'p.requisition_id', '=', 'r.id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')->where('r.id', $id)->first(['r.*', 'p.id as procurement_id', 'p.procurement_number', 'p.status as procurement_status', 'p.received_at as procurement_received_at', 'approver.name as approved_by_name']);
+        if ($record) $record->items = $this->requisitionItems($id);
+        return $record;
     }
     public function accept($id, $userId = null)
     {
@@ -44,9 +50,15 @@ class RequisitionService
     {
         $rows = DB::table('procurements as p')->join('requisitions as r', 'r.id', '=', 'p.requisition_id')->join('requisition_products as rp', 'rp.requisition_id', '=', 'r.id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')
             ->select('p.id', 'p.procurement_number', 'p.status', 'p.paid_at', 'p.payment_amount', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.accepted_at', 'approver.name as approved_by_name', DB::raw('count(rp.id) as items_count'), DB::raw('coalesce(sum(rp.quantity * rp.unit_cost), 0) as total_amount'))
-            ->where(fn($q) => $q->where('p.procurement_number', 'like', "%{$search}%")->orWhere('r.requisition_number', 'like', "%{$search}%"))->groupBy('p.id', 'p.procurement_number', 'p.status', 'p.paid_at', 'p.payment_amount', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.accepted_at', 'approver.name')->orderByDesc('p.id')->paginate($perPage, ['*'], 'page', $page);
+            ->where(fn($q) => $q->where('p.procurement_number', 'like', "%{$search}%")->orWhere('r.requisition_number', 'like', "%{$search}%")->orWhere('r.supplier_name', 'like', "%{$search}%")->orWhere('r.reference_no', 'like', "%{$search}%")->orWhere('p.status', 'like', "%{$search}%"))->groupBy('p.id', 'p.procurement_number', 'p.status', 'p.paid_at', 'p.payment_amount', 'r.requisition_number', 'r.requested_by', 'r.department', 'r.priority', 'r.required_by', 'r.supplier_name', 'r.reference_no', 'r.notes', 'r.accepted_at', 'approver.name')->orderByDesc('p.id')->paginate($perPage, ['*'], 'page', $page);
         foreach ($rows as $row) $row->items = $this->procurementItems($row->id);
         return $rows;
+    }
+    public function procurementDetail($id)
+    {
+        $record = DB::table('procurements as p')->join('requisitions as r', 'r.id', '=', 'p.requisition_id')->leftJoin('users as approver', 'approver.id', '=', 'r.accepted_by')->leftJoin('users as receiver', 'receiver.id', '=', 'p.received_by')->where('p.id', $id)->first(['p.id', 'p.procurement_number', 'p.status as procurement_status', 'p.created_at as procurement_created_at', 'p.received_at', 'p.paid_at', 'p.payment_amount', 'p.payment_reference', 'r.*', 'approver.name as approved_by_name', 'receiver.name as received_by_name']);
+        if ($record) $record->items = $this->procurementItems($id);
+        return $record;
     }
     public function receive($id, array $items, $warehouseLocation, $userId = null)
     {

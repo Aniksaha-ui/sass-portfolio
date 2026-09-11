@@ -28,6 +28,11 @@ class RequisitionController extends Controller
     {
         return $this->respond(true, 'Requisition created successfully', $this->service->create($request->validated()), 201);
     }
+    public function showRequisition($id)
+    {
+        $record = $this->service->requisitionDetail($id);
+        return $record ? $this->respond(true, 'Requisition details fetched successfully', $record) : $this->respond(false, 'Requisition not found', [], 404);
+    }
     public function accept($id, Request $request)
     {
         $record = $this->service->accept($id, $request->user()?->id);
@@ -36,6 +41,11 @@ class RequisitionController extends Controller
     public function procurements(Request $request)
     {
         return $this->respond(true, 'Procurements fetched successfully', $this->service->procurements($this->perPage($request), $this->page($request), $request->query('search', '')));
+    }
+    public function showProcurement($id)
+    {
+        $record = $this->service->procurementDetail($id);
+        return $record ? $this->respond(true, 'Procurement details fetched successfully', $record) : $this->respond(false, 'Procurement not found', [], 404);
     }
     public function receive($id, ProcurementReceiveRequest $request)
     {
