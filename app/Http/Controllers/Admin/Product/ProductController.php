@@ -52,7 +52,10 @@ class ProductController extends Controller
     {
         $data = $request->validated();
         if (!\Illuminate\Support\Facades\DB::table('subcategories')->where('id', $data['subcategory_id'])->where('category_id', $data['category_id'])->exists()) return $this->respond(false, 'The selected subcategory does not belong to the selected category.', ['subcategory_id' => ['Invalid category relationship.']], 422);
-        $data['images'] = $request->file('images', []);
+        $data['images'] = array_values(array_filter([
+            $request->file('image'),
+            ...$request->file('images', []),
+        ]));
         if ($id && count($data['images']) && \Illuminate\Support\Facades\DB::table('product_images')->where('product_id', $id)->count() + count($data['images']) > 10) {
             return $this->respond(false, 'A product can have a maximum of 10 images.', ['images' => ['A product can have a maximum of 10 images.']], 422);
         }

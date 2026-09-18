@@ -19,6 +19,15 @@ class ProductService
             ->join('categories as c', 'c.id', '=', 'sc.category_id')
             ->leftJoinSub($inventoryTotals, 'i', fn ($join) => $join->on('i.product_id', '=', 'p.id'))
             ->select('p.id', 'p.name', 'p.sku', 'p.price', 'p.is_active', 'p.updated_at', 'c.name as category_name', 'sc.name as subcategory_name', 'i.stock_quantity')
+            ->selectSub(
+                DB::table('product_images as pi')
+                    ->select('pi.image_url')
+                    ->whereColumn('pi.product_id', 'p.id')
+                    ->orderByDesc('pi.is_primary')
+                    ->orderBy('pi.id')
+                    ->limit(1),
+                'image_url'
+            )
             ->where(function ($query) use ($search) {
                 $query->where('p.name', 'like', '%' . $search . '%')
                     ->orWhere('p.sku', 'like', '%' . $search . '%')

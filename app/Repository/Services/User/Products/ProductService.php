@@ -131,7 +131,7 @@ class ProductService
     {
         try {
             $categories = DB::table('categories')
-                ->select('id', 'name')
+                ->select('id', 'name', 'image')
                 ->orderBy('name')
                 ->get();
 
