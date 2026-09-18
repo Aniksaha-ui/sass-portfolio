@@ -126,7 +126,7 @@ class RequisitionService
                 $reference = 'PROC-' . $id . '-' . ($index + 1) . '-' . now()->format('His');
                 $references[] = $reference;
                 DB::table('company_accounts')->where('id', $account->id)->decrement($balanceColumn, $paymentAmount, ['updated_at' => now()]);
-                DB::table('account_history')->insert(['user_id' => $userId ?: 0, 'user_account_type' => $account->type, 'user_account_no' => $account->account_number, 'getaway' => 'hand_cash', 'amount' => $paymentAmount, 'com_account_no' => $account->account_number, 'transaction_reference' => $reference, 'transaction_type' => 'd', 'purpose' => 'procurement', 'tran_date' => now(), 'ip_address' => $ipAddress]);
+                DB::table('account_history')->insert(['user_id' => $userId ?: 0, 'user_account_type' => $account->type, 'user_account_no' => $account->account_number, 'getaway' => $account->type, 'amount' => $paymentAmount, 'com_account_no' => $account->account_number, 'transaction_reference' => $reference, 'transaction_type' => 'd', 'purpose' => 'procurement', 'tran_date' => now(), 'ip_address' => $ipAddress]);
                 DB::table('procurement_payments')->insert(['procurement_id' => $id, 'company_account_id' => $account->id, 'amount' => $paymentAmount, 'payment_reference' => $reference, 'paid_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
             }
             DB::table('procurements')->where('id', $id)->update(['company_account_id' => count($payments) === 1 ? $accountIds[0] : null, 'payment_amount' => $amount, 'payment_reference' => implode(',', $references), 'paid_at' => now(), 'updated_at' => now()]);

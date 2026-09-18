@@ -191,9 +191,17 @@ class OrderService
                 'created_at' => now(),
             ]);
 
+            $sslConfig = config('services.sslcommerz');
+            if (empty($sslConfig['store_id']) || empty($sslConfig['store_password'])) {
+                Log::error('SSLCommerz credentials are not configured.');
+                DB::rollBack();
+
+                return ['status' => 'failed', 'message' => 'SSLCommerz payment is not configured.'];
+            }
+
             $post_data = [
-                'store_id' => env('STORE_ID'),
-                'store_passwd' => env('STORE_PASSWORD'),
+                'store_id' => $sslConfig['store_id'],
+                'store_passwd' => $sslConfig['store_password'],
                 'total_amount' => $paymentInformation['totalAmount'],
                 'currency' => 'BDT',
                 'tran_id' => $tran_id,
@@ -216,14 +224,18 @@ class OrderService
                 'value_a' => $orderId,
             ];
 
-            $url = env('IS_SANDBOX')
-                ? 'https://uat-securepay.sslcommerz.com/gwprocess/v4/api.php'
-                : 'https://uat-securepay.sslcommerz.com/gwprocess/v4/api.php';
+            $url = $sslConfig['sandbox']
+                ? $sslConfig['sandbox_gateway_url']
+                : $sslConfig['live_gateway_url'];
 
-            $response = Http::asForm()->post($url, $post_data);
-            $sslResponse = $response->json();
+            $response = Http::asForm()->timeout(30)->post($url, $post_data);
+            $sslResponse = $response->json() ?: [];
 
             if (! empty($sslResponse['GatewayPageURL'])) {
+                DB::table('transactions')->where('order_id', $orderId)->update([
+                    'status' => 'pending',
+                    'payment_method' => 'sslcommerz',
+                ]);
                 DB::commit();
 
                 return [
@@ -234,6 +246,13 @@ class OrderService
                 ];
             }
 
+            Log::error('SSLCommerz gateway initialization rejected.', [
+                'http_status' => $response->status(),
+                'status' => $sslResponse['status'] ?? null,
+                'failedreason' => $sslResponse['failedreason'] ?? null,
+                'error' => $sslResponse['error'] ?? null,
+                'tran_id' => $tran_id,
+            ]);
             DB::rollBack();
 
             return ['status' => 'failed', 'message' => 'SSLCommerz gateway initialization failed'];
@@ -256,14 +275,15 @@ class OrderService
         try {
             Log::info('Payment Success Callback: '.json_encode($request->all()));
 
-            $verifyURL = env('IS_SANDBOX')
-                ? 'https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php'
-                : 'https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php';
+            $sslConfig = config('services.sslcommerz');
+            $verifyURL = $sslConfig['sandbox']
+                ? $sslConfig['sandbox_validation_url']
+                : $sslConfig['live_validation_url'];
 
-            $verifyResponse = Http::get($verifyURL, [
+            $verifyResponse = Http::timeout(30)->get($verifyURL, [
                 'val_id' => $request->val_id,
-                'store_id' => env('STORE_ID'),
-                'store_passwd' => env('STORE_PASSWORD'),
+                'store_id' => $sslConfig['store_id'],
+                'store_passwd' => $sslConfig['store_password'],
                 'v' => 1,
                 'format' => 'json',
             ]);

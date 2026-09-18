@@ -68,9 +68,9 @@ class FinanceService
         return DB::table('company_accounts')->where('id', $id)->delete();
     }
 
-    public function accountHistory(int $perPage, int $page, string $search)
+    public function accountHistory(int $perPage, int $page, string $search, $userId = null, $month = null)
     {
-        return DB::table('account_history as ah')
+        $query = DB::table('account_history as ah')
             ->leftJoin('users as u', 'u.id', '=', 'ah.user_id')
             ->select('ah.*', 'u.name as user_name', 'u.email as user_email')
             ->where(function ($query) use ($search) {
@@ -78,18 +78,46 @@ class FinanceService
                     ->orWhere('ah.com_account_no', 'like', "%{$search}%")
                     ->orWhere('ah.purpose', 'like', "%{$search}%")
                     ->orWhere('u.name', 'like', "%{$search}%");
-            })
-            ->orderByDesc('ah.id')
-            ->paginate($perPage, ['*'], 'page', $page);
+            });
+
+        if (is_numeric($userId) && (int) $userId > 0) {
+            $query->where('ah.user_id', (int) $userId);
+        }
+        if (is_string($month) && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            $query->whereRaw("DATE_FORMAT(ah.tran_date, '%Y-%m') = ?", [$month]);
+        }
+
+        return $query->orderByDesc('ah.id')->paginate($perPage, ['*'], 'page', $page);
     }
 
-    public function accountSummary()
+    public function accountHistoryOptions(): array
     {
+        return [
+            'users' => DB::table('account_history as ah')
+                ->leftJoin('users as u', 'u.id', '=', 'ah.user_id')
+                ->whereNotNull('ah.user_id')
+                ->select('ah.user_id as id', 'u.name', 'u.email')
+                ->distinct()
+                ->orderBy('u.name')
+                ->get(),
+        ];
+    }
+
+    public function accountSummary($userId = null, $month = null)
+    {
+        $history = DB::table('account_history');
+        if (is_numeric($userId) && (int) $userId > 0) {
+            $history->where('user_id', (int) $userId);
+        }
+        if (is_string($month) && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            $history->whereRaw("DATE_FORMAT(tran_date, '%Y-%m') = ?", [$month]);
+        }
+
         return [
             'total_balance' => (float) DB::table('company_accounts')->sum('amount'),
             'account_count' => DB::table('company_accounts')->count(),
-            'credits' => (float) DB::table('account_history')->where('transaction_type', 'c')->sum('amount'),
-            'debits' => (float) DB::table('account_history')->where('transaction_type', 'd')->sum('amount'),
+            'credits' => (float) (clone $history)->where('transaction_type', 'c')->sum('amount'),
+            'debits' => (float) (clone $history)->where('transaction_type', 'd')->sum('amount'),
         ];
     }
 }

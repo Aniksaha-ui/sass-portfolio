@@ -29,4 +29,14 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
+
+    'sslcommerz' => [
+        'store_id' => env('STORE_ID'),
+        'store_password' => env('STORE_PASSWORD'),
+        'sandbox' => filter_var(env('IS_SANDBOX', true), FILTER_VALIDATE_BOOLEAN),
+        'sandbox_gateway_url' => 'https://uat-securepay.sslcommerz.com/gwprocess/v4/api.php',
+        'live_gateway_url' => 'https://securepay.sslcommerz.com/gwprocess/v4/api.php',
+        'sandbox_validation_url' => 'https://uat-securepay.sslcommerz.com/validator/api/validationserverAPI.php',
+        'live_validation_url' => 'https://securepay.sslcommerz.com/validator/api/validationserverAPI.php',
+    ],
 ];

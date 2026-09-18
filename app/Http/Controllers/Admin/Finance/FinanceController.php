@@ -57,12 +57,26 @@ class FinanceController extends Controller
 
     public function history(Request $request)
     {
-        return $this->respond('Account history fetched successfully.', $this->finance->accountHistory($this->perPage($request), $this->page($request), $this->search($request)));
+        return $this->respond('Account history fetched successfully.', $this->finance->accountHistory(
+            $this->perPage($request),
+            $this->page($request),
+            $this->search($request),
+            $request->query('user_id'),
+            $request->query('month')
+        ));
     }
 
-    public function summary()
+    public function historyOptions()
     {
-        return $this->respond('Account summary fetched successfully.', $this->finance->accountSummary());
+        return $this->respond('Account history filter options fetched successfully.', $this->finance->accountHistoryOptions());
+    }
+
+    public function summary(Request $request)
+    {
+        return $this->respond('Account summary fetched successfully.', $this->finance->accountSummary(
+            $request->query('user_id'),
+            $request->query('month')
+        ));
     }
 
     private function perPage(Request $request)
