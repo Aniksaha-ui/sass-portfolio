@@ -52,6 +52,9 @@ class AdminOrderService
                 return null;
             }
             $status = $data['status'];
+            if ($status === 'cancelled' && DB::table('pos_sales')->where('order_id', $id)->exists()) {
+                throw new \InvalidArgumentException('Use the POS return workflow for this order.');
+            }
             if (in_array($status, ['processing', 'shipped', 'delivered'], true) && ! DB::table('order_tracking')->where('order_id', $id)->where('status', '_inventory_deducted')->exists()) {
                 $this->deductInventory($id);
             }

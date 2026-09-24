@@ -59,6 +59,9 @@ class ReturnController extends Controller
     public function store(ReturnRequest $request)
     {
         $data = $request->validated();
+        if (DB::table('pos_sales')->where('order_id', $data['order_id'])->exists()) {
+            return $this->respond(false, 'Manage POS returns in the POS screen.', [], 422);
+        }
         if (! $this->orderContainsProduct($data['order_id'], $data['product_id'])) {
             return $this->respond(false, 'The product does not belong to this order.', [], 422);
         }
@@ -72,6 +75,9 @@ class ReturnController extends Controller
         $return = DB::table('returns')->where('id', $id)->first();
         if (! $return) {
             return $this->respond(false, 'Return not found', [], 404);
+        }
+        if (DB::table('pos_sales')->where('order_id', $return->order_id)->exists()) {
+            return $this->respond(false, 'Manage POS returns in the POS screen.', [], 422);
         }
         $data = $request->validated();
         if (! $this->orderContainsProduct($data['order_id'], $data['product_id'])) {
@@ -123,6 +129,10 @@ class ReturnController extends Controller
 
     public function destroy(int $id)
     {
+        $existing = DB::table('returns')->where('id', $id)->first();
+        if ($existing && DB::table('pos_sales')->where('order_id', $existing->order_id)->exists()) {
+            return $this->respond(false, 'Manage POS returns in the POS screen.', [], 422);
+        }
         return DB::table('returns')->where('id', $id)->delete() ? $this->respond(true, 'Return deleted successfully', []) : $this->respond(false, 'Return not found', [], 404);
     }
 

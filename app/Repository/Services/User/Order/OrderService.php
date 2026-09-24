@@ -21,6 +21,9 @@ class OrderService
             if (! $order) {
                 return ['status' => false, 'message' => 'Order not found.', 'data' => []];
             }
+            if (DB::table('pos_sales')->where('order_id', $orderId)->exists()) {
+                return ['status' => false, 'message' => 'POS orders must be returned through the POS return workflow.', 'data' => []];
+            }
             if (in_array($order->status, ['shipped', 'delivered', 'cancelled'], true)) {
                 return ['status' => false, 'message' => 'This order can no longer be cancelled.', 'data' => []];
             }

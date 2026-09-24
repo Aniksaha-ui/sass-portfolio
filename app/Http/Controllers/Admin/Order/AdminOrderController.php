@@ -26,7 +26,11 @@ class AdminOrderController extends Controller
 
     public function updateTracking($id, OrderTrackingRequest $request)
     {
-        $order = $this->orders->updateTracking((int) $id, $request->validated());
+        try {
+            $order = $this->orders->updateTracking((int) $id, $request->validated());
+        } catch (\InvalidArgumentException $exception) {
+            return $this->respond(false, $exception->getMessage(), [], 422);
+        }
 
         return $order ? $this->respond(true, 'Order tracking updated successfully.', $order) : $this->respond(false, 'Order not found.', [], 404);
     }

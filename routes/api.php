@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\Category\CategoryController;
 use App\Http\Controllers\Admin\Coupon\CouponController;
 use App\Http\Controllers\Admin\Finance\FinanceController;
 use App\Http\Controllers\Admin\Order\AdminOrderController;
+use App\Http\Controllers\Admin\Pos\PosController;
 use App\Http\Controllers\Admin\ProcurementPayment\ProcurementPaymentController;
 use App\Http\Controllers\Admin\Product\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\Product\ProductDiscountController;
@@ -108,6 +109,16 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/orders', [AdminOrderController::class, 'index']);
     Route::get('admin/orders/{id}', [AdminOrderController::class, 'show']);
     Route::post('admin/orders/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
+    Route::get('admin/pos/catalog', [PosController::class, 'catalog']);
+    Route::post('admin/pos/sales', [PosController::class, 'store']);
+    Route::get('admin/pos/today', [PosController::class, 'today']);
+    Route::get('admin/pos/orders', [PosController::class, 'orders']);
+    Route::get('admin/pos/holds', [PosController::class, 'holds']);
+    Route::post('admin/pos/holds', [PosController::class, 'hold']);
+    Route::delete('admin/pos/holds/{id}', [PosController::class, 'releaseHold']);
+    Route::get('admin/pos/sales/{id}', [PosController::class, 'order']);
+    Route::post('admin/pos/sales/{id}/returns', [PosController::class, 'returnItems']);
+    Route::post('admin/pos/sales/{id}/payments', [PosController::class, 'collectPayment']);
 
     Route::get('admin/transactions', [FinanceController::class, 'transactions']);
     Route::get('admin/transactions/{id}', [FinanceController::class, 'transaction']);
