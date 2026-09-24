@@ -12,7 +12,7 @@ class PosReportService
         $end = $start->copy()->addDay();
         $sales = DB::table('pos_sales as ps')->join('orders as o', 'o.id', '=', 'ps.order_id')
             ->where('ps.created_at', '>=', $start)->where('ps.created_at', '<', $end)->orderByDesc('ps.id')
-            ->get(['ps.order_id', 'ps.customer_name', 'ps.cost_total', 'ps.returned_amount', 'o.total_amount', 'o.payment_status', 'o.status', 'ps.created_at']);
+            ->get(['ps.order_id', 'ps.customer_name', 'ps.subtotal', 'ps.discount_amount', 'ps.cost_total', 'ps.returned_amount', 'o.total_amount', 'o.payment_status', 'o.status', 'ps.created_at']);
         $transactions = DB::table('transactions as t')->join('pos_sales as ps', 'ps.order_id', '=', 't.order_id')
             ->where('t.created_at', '>=', $start)->where('t.created_at', '<', $end)->orderByDesc('t.id')->limit(200)
             ->get(['t.id', 't.order_id', 't.transaction_type', 't.amount', 't.payment_method', 't.status', 't.bank_ssl_id', 't.created_at', 'ps.customer_name']);
@@ -38,6 +38,13 @@ class PosReportService
         $returnsTotal = round($returnedValue, 2);
         $cashRefunds = round($transactions->where('transaction_type', 'refund')->where('status', 'success')->sum('amount'), 2);
         $cost = round($sales->sum('cost_total') - $reversedCost, 2);
+        $payments = DB::table('pos_payments as pp')->join('pos_sales as ps', 'ps.order_id', '=', 'pp.order_id')
+            ->where('pp.created_at', '>=', $start)->where('pp.created_at', '<', $end)
+            ->get(['pp.kind', 'pp.method', 'pp.amount']);
+        $cashReceived = round($payments->where('method', 'cash')->where('kind', 'payment')->sum('amount')
+            - $payments->where('method', 'cash')->where('kind', 'refund')->sum('amount'), 2);
+        $depositPayments = round($payments->where('method', 'deposit')->where('kind', 'payment')->sum('amount'), 2);
+        $discounts = round($sales->sum('discount_amount'), 2);
         return [
             'orders' => $sales,
             'transactions' => $transactions,
@@ -48,6 +55,21 @@ class PosReportService
             'net_sales' => round($gross - $returnsTotal, 2),
             'estimated_cost' => $cost,
             'estimated_profit' => round($gross - $returnsTotal - $cost, 2),
+            'profit_breakdown' => [
+                'product_revenue' => round($sales->sum('subtotal'), 2),
+                'product_cost' => $cost,
+                'expense' => null,
+                'stock_adjustment' => null,
+                'deposit_payment' => $depositPayments,
+                'purchase_shipping_cost' => null,
+                'sell_discount' => $discounts,
+                'sell_return' => $returnsTotal,
+                'closing_stock' => null,
+                'total_sales' => $gross,
+                'sale_return' => $returnsTotal,
+                'total_expense' => null,
+                'total_cash' => $cashReceived,
+            ],
             'last_order' => $sales->first(),
         ];
     }

@@ -76,7 +76,7 @@ class PosService
                 'userInformation' => ['name' => $customerName, 'email' => $customer->email, 'phone' => $customerPhone, 'shipmentType' => 'pos'],
                 'pos' => ['source' => 'pos', 'cashier_id' => Auth::id(), 'reference' => $reference, 'subtotal' => $subtotal, 'discount' => $discountAmount, 'coupon_code' => $coupon->code ?? null, 'tax' => $tax, 'shipping' => $shipping, 'rounding' => $rounding, 'note' => $data['note'] ?? null],
             ];
-            $orderId = DB::table('orders')->insertGetId(['user_id' => $customer->id, 'total_amount' => $total, 'status' => 'processing', 'payment_status' => $due > 0 ? 'unpaid' : 'paid', 'tran_id' => $reference, 'cart_data' => json_encode($cartData), 'created_at' => now(), 'updated_at' => now()]);
+            $orderId = DB::table('orders')->insertGetId(['user_id' => $customer->id, 'total_amount' => $total, 'status' => 'delivered', 'payment_status' => $due > 0 ? 'unpaid' : 'paid', 'tran_id' => $reference, 'cart_data' => json_encode($cartData), 'created_at' => now(), 'updated_at' => now()]);
             DB::table('pos_sales')->insert(['order_id' => $orderId, 'cashier_id' => Auth::id(), 'customer_name' => $customerName, 'customer_phone' => $customerPhone, 'subtotal' => $subtotal, 'cost_total' => $costTotal, 'discount_amount' => $discountAmount, 'tax_amount' => $tax, 'shipping_amount' => $shipping, 'rounding_amount' => $rounding, 'coupon_code' => $coupon->code ?? null, 'created_at' => now(), 'updated_at' => now()]);
             if ($coupon) DB::table('pos_coupon_redemptions')->insert(['coupon_id' => $coupon->id, 'order_id' => $orderId, 'created_at' => now()]);
             foreach ($items as $item) {
@@ -99,7 +99,7 @@ class PosService
                 DB::table('transactions')->insert(['order_id' => $orderId, 'transaction_type' => 'payment', 'amount' => $amount, 'payment_method' => $method, 'bank_ssl_id' => $paymentReference, 'tran_date' => now(), 'currency' => 'BDT', 'status' => $method === 'pay_later' ? 'pending' : 'success', 'created_at' => now()]);
                 if ($method !== 'pay_later') $this->accountMovement($customer->id, $method, $amount, $reference.'-'.($index + 1), 'c');
             }
-            DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => 'processing', 'location' => 'POS sale', 'updated_at' => now()]);
+            DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => 'delivered', 'location' => 'POS sale', 'updated_at' => now()]);
             return $this->order($orderId);
         });
     }
@@ -128,16 +128,56 @@ class PosService
     {
         if (! empty($data['customer_id'])) {
             $customer = DB::table('users')->where('id', $data['customer_id'])->first();
-            if (! $customer) throw new \InvalidArgumentException('Customer not found.');
+            if (! $customer || $customer->role !== 'customer') throw new \InvalidArgumentException('Customer not found.');
             return $customer;
         }
-        $email = 'pos-walkin@ecovani.local';
-        $customer = DB::table('users')->where('email', $email)->first();
-        if (! $customer) {
-            $id = DB::table('users')->insertGetId(['name' => 'Walk-in Customer', 'email' => $email, 'role' => 'customer', 'password' => bcrypt(Str::random(40)), 'created_at' => now(), 'updated_at' => now()]);
-            $customer = DB::table('users')->where('id', $id)->first();
+
+        $email = Str::lower(trim($data['walk_in_email'] ?? ''));
+        $phone = trim($data['walk_in_phone'] ?? '');
+        if ($email === '' && $phone === '') {
+            $sharedEmail = 'pos-walkin@ecovani.local';
+            $customer = DB::table('users')->where('email', $sharedEmail)->first();
+            if (! $customer) {
+                $id = DB::table('users')->insertGetId(['name' => 'Walk-in Customer', 'email' => $sharedEmail, 'role' => 'customer', 'password' => bcrypt(Str::random(40)), 'created_at' => now(), 'updated_at' => now()]);
+                $customer = DB::table('users')->where('id', $id)->first();
+            }
+            return $customer;
         }
-        return $customer;
+
+        $byEmail = $email !== '' ? DB::table('users')->where('email', $email)->lockForUpdate()->first() : null;
+        $byPhone = $phone !== '' ? DB::table('users')->where('phone', $phone)->lockForUpdate()->get() : collect();
+        if ($byPhone->count() > 1) throw new \InvalidArgumentException('This phone number matches multiple users. Select the customer explicitly.');
+        $phoneCustomer = $byPhone->first();
+        if ($byEmail && $phoneCustomer && $byEmail->id !== $phoneCustomer->id) {
+            throw new \InvalidArgumentException('Email and phone belong to different accounts.');
+        }
+        $customer = $byEmail ?: $phoneCustomer;
+        if ($customer) {
+            if ($customer->role !== 'customer') throw new \InvalidArgumentException('These contact details belong to a non-customer account.');
+            if ($email !== '' && $customer->email !== $email) {
+                if (! Str::startsWith($customer->email, 'pos-phone-') || ! Str::endsWith($customer->email, '@ecovani.local')) {
+                    throw new \InvalidArgumentException('This phone number belongs to an account with a different email. Select the customer explicitly.');
+                }
+                DB::table('users')->where('id', $customer->id)->update(['email' => $email, 'updated_at' => now()]);
+                $customer->email = $email;
+            }
+            if ($phone !== '' && ! $customer->phone) {
+                DB::table('users')->where('id', $customer->id)->update(['phone' => $phone, 'updated_at' => now()]);
+                $customer->phone = $phone;
+            }
+            return $customer;
+        }
+
+        $id = DB::table('users')->insertGetId([
+            'name' => trim($data['walk_in_name'] ?? '') ?: 'Walk-in Customer',
+            'email' => $email ?: 'pos-phone-'.Str::uuid().'@ecovani.local',
+            'phone' => $phone ?: null,
+            'role' => 'customer',
+            'password' => bcrypt(Str::random(40)),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return DB::table('users')->where('id', $id)->first();
     }
 
     private function coupon(?string $code, float $subtotal)

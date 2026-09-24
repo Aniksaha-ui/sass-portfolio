@@ -9,6 +9,7 @@ class PosHoldRequest extends ApiRequest
         return [
             'customer_id' => 'nullable|integer|exists:users,id',
             'walk_in_name' => 'nullable|string|max:255',
+            'walk_in_email' => 'nullable|email|max:255',
             'walk_in_phone' => 'nullable|string|max:30',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer|distinct|exists:products,id',
