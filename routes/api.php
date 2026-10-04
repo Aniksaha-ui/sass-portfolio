@@ -30,6 +30,7 @@ Route::pattern('id', '[0-9]+');
 
 /** login and registation routes **/
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 
 /** protected routes for admin **/
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
