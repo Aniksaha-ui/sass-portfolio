@@ -21,12 +21,15 @@ class ProductController extends Controller
     {
         try {
             $search = $request->query('search') ?? '';
-            $sectionWiseProduct = $this->productService->getSectionWiseProducts($search);
+            $perPage = min(max((int) $request->query('per_page', 10), 1), 30);
+            $page = max((int) $request->query('page', 1), 1);
+            $sectionWiseProduct = $this->productService->getSectionWiseProducts($search, $perPage, $page);
 
             return response()->json([
                 "isExecuted" => $sectionWiseProduct['status'],
                 "message" => $sectionWiseProduct['message'],
-                "data" => $sectionWiseProduct['data']
+                "data" => $sectionWiseProduct['data'],
+                "pagination" => $sectionWiseProduct['pagination'] ?? null,
             ], 200);
         } catch (Exception $ex) {
             Log::info("ProductController : homePageProducts function error: " . $ex->getMessage());
