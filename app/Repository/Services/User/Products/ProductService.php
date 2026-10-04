@@ -212,10 +212,23 @@ class ProductService
     public function getCategoryWiseProducts($id)
     {
         try {
+            $reviews = DB::table('product_reviews')
+                ->select('product_id', DB::raw('AVG(rating) as average_rating'), DB::raw('COUNT(*) as review_count'))
+                ->groupBy('product_id');
+
             $categoryWiseProducts = DB::table('products')
                 ->join('subcategories', 'products.subcategory_id', '=', 'subcategories.id')
                 ->join('categories', 'subcategories.category_id', '=', 'categories.id')
-                ->leftJoin('product_discounts as pd', 'pd.product_id', '=', 'products.id')
+                ->leftJoin('product_discounts as pd', function ($join) {
+                    $join->on('pd.product_id', '=', 'products.id')
+                        ->where(function ($query) {
+                            $query->whereNull('pd.start_date')->orWhereDate('pd.start_date', '<=', now());
+                        })
+                        ->where(function ($query) {
+                            $query->whereNull('pd.end_date')->orWhereDate('pd.end_date', '>=', now());
+                        });
+                })
+                ->leftJoinSub($reviews, 'reviews', fn ($join) => $join->on('reviews.product_id', '=', 'products.id'))
                 ->leftJoin('product_images as pi', function ($join) {
                     $join->on('pi.product_id', '=', 'products.id')
                         ->where('pi.is_primary', '=', 1);
@@ -231,9 +244,13 @@ class ProductService
                     'pd.discount_type',
                     'pd.discount_value',
                     'pi.image_url as primary_image',
-                    'i.stock_quantity'
+                    'i.stock_quantity',
+                    DB::raw('COALESCE(reviews.average_rating, 0) as average_rating'),
+                    DB::raw('COALESCE(reviews.review_count, 0) as review_count')
                 )
                 ->where('categories.id', $id)
+                ->where('products.is_active', 1)
+                ->where('i.stock_quantity', '>', 0)
                 ->get();
 
 
